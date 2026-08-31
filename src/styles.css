@@ -1,0 +1,107 @@
+/* PlacementAI — Refined Color System & Theme Tokens */
+
+:root {
+  /* LIGHT MODE (Deep Navy Main Text + White/Off-White Backgrounds) */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8FAFC;
+  --bg-navbar: rgba(255, 255, 255, 0.9);
+  --bg-card: #FFFFFF;
+  --bg-dashboard: #F8FAFC;
+  
+  --text-primary: #0B132B; /* Deep Navy Main Text */
+  --text-secondary: #475569; /* Slate Blue-Gray Secondary Text */
+  
+  --border-theme: #E2E8F0;
+  
+  --accent-blue: #2563EB;
+  --accent-indigo: #4F46E5;
+  --accent-purple: #6366F1;
+  --accent-teal: #14B8A6;
+  
+  --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+}
+
+/* DARK MODE OVERRIDES (Charcoal/Black Backgrounds + White Text) */
+html.dark {
+  --bg-primary: #09090B;
+  --bg-secondary: #0F172A;
+  --bg-navbar: rgba(9, 9, 11, 0.9);
+  --bg-card: #18181B;
+  --bg-dashboard: #0F172A;
+  
+  --text-primary: #F8FAFC; /* Soft White */
+  --text-secondary: #94A3B8; /* Muted Slate */
+  
+  --border-theme: #1E293B;
+  
+  --accent-blue: #3B82F6;
+  --accent-indigo: #6366F1;
+  --accent-purple: #818CF8;
+  --accent-teal: #14B8A6;
+}
+
+/* Global Transitions */
+* {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Custom Color Tokens */
+.bg-primary { background-color: var(--bg-primary); }
+.bg-secondary { background-color: var(--bg-secondary); }
+.bg-navbar { background-color: var(--bg-navbar); backdrop-filter: blur(12px); }
+.bg-card-bg { background-color: var(--bg-card); }
+.bg-dashboard-bg { background-color: var(--bg-dashboard); }
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+
+.border-theme { border-color: var(--border-theme); }
+
+/* Accent Gradient Text Helper */
+.text-gradient-brand {
+  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-indigo) 50%, var(--accent-purple) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Primary CTA Button Gradient */
+.btn-brand-primary {
+  background: linear-gradient(135deg, #2563EB 0%, #4F46E5 100%);
+  color: #FFFFFF;
+}
+
+.btn-brand-primary:hover {
+  background: linear-gradient(135deg, #1D4ED8 0%, #4338CA 100%);
+}
+
+/* Accent Teal Badges & Indicators */
+.text-accent-teal { color: var(--accent-teal); }
+.bg-accent-teal { background-color: var(--accent-teal); }
+.border-accent-teal { border-color: var(--accent-teal); }
+
+/* Adaptive Grid Overlay */
+.bg-grid-theme {
+  background-image: 
+    linear-gradient(to right, var(--border-theme) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-theme) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Scroll reveal class */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
