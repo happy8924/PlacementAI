@@ -22,11 +22,12 @@ export default function Navbar({ onGetStarted }) {
         </a>
 
         {/* Desktop Nav Links */}
-        <nav className="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-wider text-secondary">
+        <nav className="hidden md:flex items-center gap-6 text-xs font-semibold uppercase tracking-wider text-secondary">
           <a href="#features" className="hover:text-primary transition-colors">Features</a>
           <a href="#how-it-works" className="hover:text-primary transition-colors">How It Works</a>
-          <a href="#ai-core" className="hover:text-primary transition-colors">AI Core</a>
-          <a href="#ecosystem" className="hover:text-primary transition-colors">Ecosystem</a>
+          <a href="#student-dashboard" className="hover:text-primary transition-colors">Dashboard</a>
+          <a href="#colleges" className="hover:text-primary transition-colors">For Colleges</a>
+          <a href="#pricing" className="hover:text-primary transition-colors">Pricing</a>
         </nav>
 
         {/* Right Actions (Theme Toggle + CTAs) */}
@@ -34,7 +35,7 @@ export default function Navbar({ onGetStarted }) {
           <ThemeToggle />
 
           <button onClick={onGetStarted} className="px-4 py-2.5 text-xs font-semibold text-secondary hover:text-primary transition-colors">
-            Sign In
+            Login
           </button>
 
           <button onClick={onGetStarted} className="px-6 py-2.5 text-xs font-bold uppercase tracking-wider btn-brand-primary rounded-xl shadow-lg flex items-center gap-2 group">
@@ -71,10 +72,11 @@ export default function Navbar({ onGetStarted }) {
         <div id="mobile-menu" className="md:hidden bg-secondary border-b border-theme px-6 py-6 space-y-4">
           <a href="#features" onClick={() => setIsOpen(false)} className="block text-sm font-semibold uppercase text-secondary py-2 border-b border-theme">Features</a>
           <a href="#how-it-works" onClick={() => setIsOpen(false)} className="block text-sm font-semibold uppercase text-secondary py-2 border-b border-theme">How It Works</a>
-          <a href="#ai-core" onClick={() => setIsOpen(false)} className="block text-sm font-semibold uppercase text-secondary py-2 border-b border-theme">AI Core</a>
-          <a href="#ecosystem" onClick={() => setIsOpen(false)} className="block text-sm font-semibold uppercase text-secondary py-2 border-b border-theme">Ecosystem</a>
+          <a href="#student-dashboard" onClick={() => setIsOpen(false)} className="block text-sm font-semibold uppercase text-secondary py-2 border-b border-theme">Dashboard</a>
+          <a href="#colleges" onClick={() => setIsOpen(false)} className="block text-sm font-semibold uppercase text-secondary py-2 border-b border-theme">For Colleges</a>
+          <a href="#pricing" onClick={() => setIsOpen(false)} className="block text-sm font-semibold uppercase text-secondary py-2 border-b border-theme">Pricing</a>
           <div className="pt-4 flex flex-col gap-3">
-            <button onClick={() => { setIsOpen(false); onGetStarted(); }} className="w-full py-3 text-xs font-semibold uppercase text-primary border border-theme rounded-lg text-center">Sign In</button>
+            <button onClick={() => { setIsOpen(false); onGetStarted(); }} className="w-full py-3 text-xs font-semibold uppercase text-primary border border-theme rounded-lg text-center">Login</button>
             <button onClick={() => { setIsOpen(false); onGetStarted(); }} className="w-full py-3 text-xs font-bold uppercase btn-brand-primary rounded-lg text-center">Get Started →</button>
           </div>
         </div>

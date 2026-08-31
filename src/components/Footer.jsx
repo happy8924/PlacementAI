@@ -27,24 +27,25 @@ export default function Footer({ onGetStarted }) {
               <li><a href="#features" className="hover:text-primary">Features</a></li>
               <li><a href="#how-it-works" className="hover:text-primary">How It Works</a></li>
               <li><a href="#ai-core" className="hover:text-primary">AI Core Engine</a></li>
+              <li><a href="#pricing" className="hover:text-primary">Pricing Plans</a></li>
             </ul>
           </div>
 
           <div className="space-y-3">
             <span className="font-bold text-primary uppercase font-mono tracking-wider block">For Users</span>
             <ul className="space-y-2 font-mono uppercase text-[11px]">
-              <li><a href="#ecosystem" className="hover:text-primary">Students</a></li>
-              <li><a href="#ecosystem" className="hover:text-primary">Recruiters</a></li>
-              <li><a href="#ecosystem" className="hover:text-primary">Placement Officers</a></li>
+              <li><a href="#student-dashboard" className="hover:text-primary">Students</a></li>
+              <li><a href="#colleges" className="hover:text-primary">Colleges</a></li>
+              <li><span onClick={onGetStarted} className="hover:text-primary cursor-pointer">Recruiters</span></li>
             </ul>
           </div>
 
           <div className="space-y-3">
             <span className="font-bold text-primary uppercase font-mono tracking-wider block">Company</span>
             <ul className="space-y-2 font-mono uppercase text-[11px]">
-              <li><span onClick={onGetStarted} className="hover:text-primary cursor-pointer">About</span></li>
-              <li><span onClick={onGetStarted} className="hover:text-primary cursor-pointer">Contact Support</span></li>
               <li><span onClick={onGetStarted} className="hover:text-primary cursor-pointer">Privacy Policy</span></li>
+              <li><span onClick={onGetStarted} className="hover:text-primary cursor-pointer">Terms of Service</span></li>
+              <li><span onClick={onGetStarted} className="hover:text-primary cursor-pointer">Contact Support</span></li>
             </ul>
           </div>
 
@@ -52,7 +53,7 @@ export default function Footer({ onGetStarted }) {
 
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-secondary text-[11px] font-mono">
           <span>© 2026 PlacementAI Inc. All rights reserved.</span>
-          <span className="mt-2 sm:mt-0 uppercase">Deep Navy • Blue / Indigo Gradient • Teal Accents</span>
+          <span className="mt-2 sm:mt-0 uppercase font-bold text-teal-500">Secure & Encryption Vetted</span>
         </div>
 
       </div>
