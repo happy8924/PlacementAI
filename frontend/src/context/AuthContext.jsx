@@ -45,10 +45,10 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const signupAction = async (fields) => {
+  const signupAction = async (fields, registrationToken) => {
     setLoading(true);
     try {
-      const data = await apiRegister(fields);
+      const data = await apiRegister(fields, registrationToken);
       return data;
     } finally {
       setLoading(false);

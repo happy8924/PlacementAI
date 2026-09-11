@@ -1,3 +1,4 @@
+import { sendOtp, verifyOtp } from '../services/auth';
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -14,7 +15,15 @@ export default function SignupPage() {
   const [role, setRole] = useState('student');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
+  
+  // OTP state
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpToken, setOtpToken] = useState(null);
+  const [otpError, setOtpError] = useState('');
+  const [otpSuccess, setOtpSuccess] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  
   // Student specific details
   const [rollNumber, setRollNumber] = useState('');
   const [branch, setBranch] = useState('');
@@ -28,6 +37,12 @@ export default function SignupPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    // Check OTP verification first
+    if (!otpToken) {
+      setError('Please verify your email address with OTP before registering.');
+      return;
+    }
 
     // Pre-flight validations
     if (!name || !email || !password || !confirmPassword) {
@@ -67,9 +82,13 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      const data = await signup(payload);
+      const data = await signup(payload, otpToken);
       if (data.success) {
         setSuccess('Registration successful! Redirecting to login page...');
+        setOtp('');
+        setOtpToken(null);
+        setOtpSent(false);
+
         setTimeout(() => {
           navigate('/login?registered=true');
         }, 2000);
@@ -82,6 +101,59 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
+
+  const handleSendOtp = async () => {
+    setOtpError('');
+    setOtpSuccess('');
+
+    if (!email) { 
+      setOtpError('Please enter your email address first.'); 
+      return; 
+    }
+    setOtpLoading(true);
+    try {
+      const data = await sendOtp(email);
+      if (data.success) {
+        setOtpSent(true);
+        setOtpSuccess(data.message || 'OTP sent successfully to your email address.');
+      } else {
+        setOtpError(data.message || 'Failed to send OTP.');
+      }
+    } catch (err) {
+      console.error('Send OTP failed:', err);
+      const detailMsg = err.response?.data?.detail || 'Failed to send OTP. Please check email address and try again.';
+      setOtpError(detailMsg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setOtpError('');
+    setOtpSuccess('');
+
+    if (!otp) { 
+      setOtpError('Please enter the 6-digit OTP code.'); 
+      return; 
+    }
+    setOtpLoading(true);
+    try {
+      const data = await verifyOtp(email, otp);
+      if (data.success) {
+        setOtpToken(data.registration_token);
+        setOtpSent(false);
+        setOtpSuccess('Email verified successfully!');
+      } else {
+        setOtpError(data.message || 'OTP verification failed.');
+      }
+    } catch (err) {
+      console.error('Verify OTP failed:', err);
+      const detailMsg = err.response?.data?.detail || 'Invalid OTP. Please check the code and try again.';
+      setOtpError(detailMsg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };  
 
   return (
     <div className="min-h-screen bg-primary flex flex-col justify-center relative overflow-hidden px-6 py-12">
@@ -164,22 +236,106 @@ export default function SignupPage() {
 
             </div>
 
-            {/* Email Address */}
-            <div className="space-y-1">
-              <label className="block text-primary uppercase font-bold text-[10px] font-mono tracking-wider">Email Address</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-secondary">
-                  <Mail className="w-4 h-4" />
+            {/* Email Address & OTP Section */}
+            <div className="space-y-2">
+              <label className="block text-primary uppercase font-bold text-[10px] font-mono tracking-wider">
+                Email Address
+              </label>
+              
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-secondary">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (otpToken) setOtpToken(null);
+                    }}
+                    placeholder="name@university.edu"
+                    className="w-full pl-10 pr-3 py-3 border border-theme bg-secondary text-primary rounded-lg focus:outline-none focus:border-blue-500 font-mono text-xs focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    required
+                    disabled={!!otpToken}
+                  />
                 </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@university.edu"
-                  className="w-full pl-10 pr-3 py-3 border border-theme bg-secondary text-primary rounded-lg focus:outline-none focus:border-blue-500 font-mono text-xs focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  required
-                />
+
+                {/* Send / Resend OTP Button */}
+                {!otpToken && (
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading || !email}
+                    className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs font-bold rounded-lg transition-all disabled:opacity-50 whitespace-nowrap flex items-center gap-1 shadow-sm"
+                  >
+                    {otpLoading && !otpSent ? (
+                      <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                    ) : null}
+                    {otpSent ? 'Resend OTP' : 'Send OTP'}
+                  </button>
+                )}
               </div>
+
+              {/* Verified Badge */}
+              {otpToken && (
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono rounded-lg flex items-center justify-between">
+                  <span>✓ Email Verified Successfully</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpToken(null);
+                      setOtpSent(false);
+                      setOtp('');
+                    }}
+                    className="text-[10px] underline text-emerald-300 hover:text-emerald-100 ml-2"
+                  >
+                    Change Email
+                  </button>
+                </div>
+              )}
+
+              {/* OTP Entry Box */}
+              {otpSent && !otpToken && (
+                <div className="p-3 bg-secondary/80 border border-blue-500/30 rounded-xl space-y-3 mt-2">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-blue-400 font-bold">
+                    // Enter 6-Digit Verification Code
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="e.g. 123456"
+                      className="flex-1 px-3 py-2.5 border border-theme bg-primary text-primary rounded-lg focus:outline-none focus:border-blue-500 font-mono text-xs text-center tracking-widest font-bold"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={otpLoading || otp.length !== 6}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-bold rounded-lg transition-all disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
+                    >
+                      {otpLoading ? (
+                        <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                      ) : null}
+                      Verify OTP
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* OTP Feedback Messages */}
+              {otpSuccess && !otpToken && (
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono rounded-lg">
+                  ✓ {otpSuccess}
+                </div>
+              )}
+              {otpError && (
+                <div className="p-2.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono rounded-lg">
+                  ✕ {otpError}
+                </div>
+              )}
             </div>
 
             {/* Password Fields */}
@@ -309,7 +465,7 @@ export default function SignupPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !otpToken}
               className="w-full py-4 mt-6 btn-brand-primary font-bold font-mono text-xs uppercase tracking-wider rounded-lg shadow-lg flex items-center justify-center gap-2 group disabled:opacity-50 transition-all"
             >
               {loading ? (
@@ -324,6 +480,11 @@ export default function SignupPage() {
                 </>
               )}
             </button>
+            {!otpToken && (
+              <p className="text-[11px] text-center text-secondary font-mono">
+                * Send & Verify Email OTP to enable account creation.
+              </p>
+            )}
 
           </form>
         </div>

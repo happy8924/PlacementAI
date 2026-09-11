@@ -36,3 +36,27 @@ def decode_access_token(token: str) -> dict | None:
         return payload
     except jwt.PyJWTError:
         return None
+
+def create_otp_token(email: str, expires_minutes: int = None) -> str:
+    """Create a short-lived JWT proving that the email's OTP has been verified.
+    The frontend sends this token back during the final /register call."""
+    if expires_minutes is None:
+        expires_minutes = settings.OTP_EXPIRY_MINUTES
+    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+    to_encode = {
+        "sub": email,
+        "exp": expire,
+        "otp_verified": True
+    }
+    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm="HS256")
+
+def verify_otp_token(token: str) -> dict | None:
+    """Decode an OTP verification JWT. Returns payload only if it contains the
+    'otp_verified' claim. Returns None on any failure."""
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
+        if not payload.get("otp_verified"):
+            return None
+        return payload
+    except jwt.PyJWTError:
+        return None

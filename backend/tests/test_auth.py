@@ -8,7 +8,7 @@ import mongomock
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, create_otp_token
 from app.api.v1.auth import router as auth_router
 
 # Create a test FastAPI app to run the tests against
@@ -58,13 +58,20 @@ def clean_db():
     db = TestDatabase.get_test_db()
     db.users.delete_many({})
     db.password_reset_tokens.delete_many({})
+    db.otp_codes.delete_many({})
     yield
 
+def helper_get_verified_otp_token(email: str) -> str:
+    """Helper to get registration token via send-otp and verify-otp or direct token creation."""
+    return create_otp_token(email)
+
 def test_user_signup_and_duplicate():
-    # 1. Signup a student user
+    email = "student@college.edu"
+    
+    # 1. Signup without OTP token should fail (401)
     signup_data = {
         "name": "Test Student",
-        "email": "student@college.edu",
+        "email": email,
         "password": "SecurePassword123",
         "role": "student",
         "student_details": {
@@ -73,31 +80,46 @@ def test_user_signup_and_duplicate():
             "graduation_year": 2026
         }
     }
+    res_no_otp = client.post("/api/v1/auth/register", json=signup_data)
+    assert res_no_otp.status_code == 401
+
+    # 2. Send OTP
+    res_send_otp = client.post("/api/v1/auth/send-otp", json={"email": email})
+    assert res_send_otp.status_code == 200
+    assert res_send_otp.json()["success"] is True
+
+    # 3. Signup with valid OTP registration token
+    otp_token = helper_get_verified_otp_token(email)
+    headers = {"Authorization": f"Bearer {otp_token}"}
     
-    response = client.post("/api/v1/auth/register", json=signup_data)
+    response = client.post("/api/v1/auth/register", json=signup_data, headers=headers)
     assert response.status_code == 201
     res_json = response.json()
     assert res_json["success"] is True
     assert "user_id" in res_json
 
-    # 2. Duplicate registration check
-    response_dup = client.post("/api/v1/auth/register", json=signup_data)
+    # 4. Duplicate registration check
+    response_dup = client.post("/api/v1/auth/register", json=signup_data, headers=headers)
     assert response_dup.status_code == 409
     assert "detail" in response_dup.json()
 
 def test_user_login():
+    email = "tester@college.edu"
+    otp_token = helper_get_verified_otp_token(email)
+    headers = {"Authorization": f"Bearer {otp_token}"}
+
     # 1. Register user
     signup_data = {
         "name": "Login Tester",
-        "email": "tester@college.edu",
+        "email": email,
         "password": "SecurePassword123",
         "role": "recruiter"
     }
-    client.post("/api/v1/auth/register", json=signup_data)
+    client.post("/api/v1/auth/register", json=signup_data, headers=headers)
 
     # 2. Login successfully
     login_data = {
-        "email": "tester@college.edu",
+        "email": email,
         "password": "SecurePassword123"
     }
     response = client.post("/api/v1/auth/login", json=login_data)
@@ -105,29 +127,33 @@ def test_user_login():
     res_json = response.json()
     assert res_json["success"] is True
     assert "access_token" in res_json
-    assert res_json["user"]["email"] == "tester@college.edu"
+    assert res_json["user"]["email"] == email
     assert res_json["user"]["role"] == "recruiter"
 
     # 3. Login with incorrect password
     bad_login = {
-        "email": "tester@college.edu",
+        "email": email,
         "password": "WrongPassword"
     }
     response_bad = client.post("/api/v1/auth/login", json=bad_login)
     assert response_bad.status_code == 401
 
 def test_protected_route_guard():
+    email = "guard@college.edu"
+    otp_token = helper_get_verified_otp_token(email)
+    headers_reg = {"Authorization": f"Bearer {otp_token}"}
+
     # 1. Register & Login
     signup_data = {
         "name": "Guard Tester",
-        "email": "guard@college.edu",
+        "email": email,
         "password": "SecurePassword123",
         "role": "tpo"
     }
-    client.post("/api/v1/auth/register", json=signup_data)
+    client.post("/api/v1/auth/register", json=signup_data, headers=headers_reg)
 
     login_data = {
-        "email": "guard@college.edu",
+        "email": email,
         "password": "SecurePassword123"
     }
     res_login = client.post("/api/v1/auth/login", json=login_data).json()
@@ -144,8 +170,11 @@ def test_protected_route_guard():
     assert response_bad.status_code == 401
 
 def test_forgot_and_reset_password_flow():
-    # 1. Register user
     email = "reset@college.edu"
+    otp_token = helper_get_verified_otp_token(email)
+    headers_reg = {"Authorization": f"Bearer {otp_token}"}
+
+    # 1. Register user
     signup_data = {
         "name": "Reset Tester",
         "email": email,
@@ -157,29 +186,18 @@ def test_forgot_and_reset_password_flow():
             "graduation_year": 2026
         }
     }
-    client.post("/api/v1/auth/register", json=signup_data)
+    client.post("/api/v1/auth/register", json=signup_data, headers=headers_reg)
 
     # 2. Forgot Password Request
     response_forgot = client.post("/api/v1/auth/forgot-password", json={"email": email})
     assert response_forgot.status_code == 200
     assert response_forgot.json()["success"] is True
 
-    # 3. Access DB to get token (since SMTP is mocked / console logged)
+    # 3. Access DB to get token
     db = TestDatabase.get_test_db()
-    token_record = db.password_reset_tokens.find_one({})
-    assert token_record is not None
-    
-    # Wait, the token_hash is stored, but what was the raw token?
-    # For testing forgot-password, the raw token is passed to email. 
-    # Let's inspect if we can check it. In our test context, we can cheat slightly 
-    # by modifying the DB token record or mock the secrets module, or we can just mock 
-    # secrets.token_urlsafe to return a known token!
-    # Let's write a mock secrets token in the test or find it.
-    # Actually, we can generate a token, save it to DB, and then test the reset-password endpoint directly!
     raw_token = "my_super_secret_test_token"
     token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
     
-    # Save a valid reset token in DB
     from datetime import datetime, timezone, timedelta
     reset_doc = {
         "user_id": db.users.find_one({"email": email})["_id"],

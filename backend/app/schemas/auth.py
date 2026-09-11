@@ -64,3 +64,17 @@ class ResetPasswordRequest(BaseModel):
 class GenericResponse(BaseModel):
     success: bool
     message: str
+
+# ──────────── OTP Schemas ────────────
+
+class SendOtpRequest(BaseModel):
+    email: EmailStr
+
+class VerifyOtpRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
+
+class OtpVerifiedResponse(BaseModel):
+    success: bool
+    message: str
+    registration_token: str

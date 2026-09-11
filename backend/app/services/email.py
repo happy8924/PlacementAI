@@ -63,3 +63,67 @@ The PlacementAI Team
         print(f"To: {email}")
         print(f"Reset Link: {reset_url}")
         print("!" * 60 + "\n")
+
+
+def send_otp_email(email: str, otp: str):
+    """
+    Send a 6-digit OTP for email verification during registration.
+    Falls back to console printing in local dev mode (same as password reset).
+    """
+    subject = "PlacementAI — Your Email Verification OTP"
+    body = f"""Hello,
+
+Your email verification code for PlacementAI registration is:
+
+    {otp}
+
+This code will expire in 10 minutes.
+
+If you did not request this, please ignore this email.
+
+Best regards,
+The PlacementAI Team
+"""
+
+    # Check if SMTP configuration is present
+    if not all([settings.SMTP_HOST, settings.SMTP_USERNAME, settings.SMTP_PASSWORD]):
+        logger.warning("SMTP is not configured. Falling back to console OTP logging.")
+        print("\n" + "=" * 60)
+        print("DEVELOPMENT MODE: OTP EMAIL SIMULATION")
+        print(f"To: {email}")
+        print(f"Subject: {subject}")
+        print(f"OTP Code: {otp}")
+        print("=" * 60 + "\n")
+        return
+
+    smtp_host = settings.SMTP_HOST.strip()
+    smtp_username = settings.SMTP_USERNAME.strip()
+    smtp_password = settings.SMTP_PASSWORD.replace(" ", "").strip()
+    from_address = (settings.SMTP_FROM_EMAIL or smtp_username).strip()
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = from_address
+        msg['To'] = email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        if settings.SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(smtp_host, settings.SMTP_PORT)
+        else:
+            server = smtplib.SMTP(smtp_host, settings.SMTP_PORT)
+            server.starttls()
+
+        server.login(smtp_username, smtp_password)
+        server.sendmail(from_address, email, msg.as_string())
+        server.quit()
+        logger.info(f"OTP email sent to {email}")
+        print(f"✓ OTP Email successfully dispatched to {email}")
+    except Exception as e:
+        logger.error(f"Failed to send OTP email via SMTP to {email}: {e}")
+        print("\n" + "!" * 60)
+        print("SMTP SEND ERROR: Could not send email via SMTP server.")
+        print(f"Error Details: {e}")
+        print(f"To: {email}")
+        print(f"OTP Code: {otp}")
+        print("!" * 60 + "\n")

@@ -5,8 +5,24 @@ export const login = async (email, password) => {
   return response.data;
 };
 
-export const register = async (fields) => {
-  const response = await api.post('/auth/register', fields);
+export const sendOtp = async (email) => {
+  const response = await api.post('/auth/send-otp', { email });
+  return response.data;
+};
+
+export const verifyOtp = async (email, otp) => {
+  const response = await api.post('/auth/verify-otp', { email, otp });
+  return response.data;
+};
+
+export const register = async (fields, registrationToken) => {
+  const config = {};
+  if (registrationToken) {
+    config.headers = {
+      Authorization: `Bearer ${registrationToken}`,
+    };
+  }
+  const response = await api.post('/auth/register', fields, config);
   return response.data;
 };
 

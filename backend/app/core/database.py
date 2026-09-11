@@ -42,6 +42,10 @@ class Database:
                 # TTL index on expires_at in 'password_reset_tokens' collection
                 cls.db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
                 logger.info("TTL index on password_reset_tokens.expires_at verified/created.")
+
+                # TTL index on expires_at in 'otp_codes' collection
+                cls.db.otp_codes.create_index("expires_at", expireAfterSeconds=0)
+                logger.info("TTL index on otp_codes.expires_at verified/created.")
             except Exception as e:
                 logger.error(f"Failed to initialize database indexes: {e}")
 

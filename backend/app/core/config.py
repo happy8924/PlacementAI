@@ -1,5 +1,8 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend directory
 
 class Settings(BaseSettings):
     # MongoDB Config
@@ -15,13 +18,16 @@ class Settings(BaseSettings):
     SMTP_PORT: int = Field(default=587)
     SMTP_USERNAME: str = Field(default="")
     SMTP_PASSWORD: str = Field(default="")
-    SMTP_FROM_EMAIL: str = Field(default="no-reply@placementai.com")
+    SMTP_FROM_EMAIL: str = Field(default="")
 
     # Frontend URL
     FRONTEND_URL: str = Field(default="http://localhost:3000")
 
+    # OTP Config
+    OTP_EXPIRY_MINUTES: int = Field(default=10)
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",
         extra="ignore"
     )
