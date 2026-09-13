@@ -264,9 +264,7 @@ export default function SignupPage() {
                 {/* Send / Resend OTP Button */}
                 {!otpToken && (
                   <button
-                    type="button"
-                    onClick={handleSendOtp}
-                    disabled={otpLoading || !email}
+                    type="button" onClick={handleSendOtp} disabled={otpLoading || !email}
                     className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs font-bold rounded-lg transition-all disabled:opacity-50 whitespace-nowrap flex items-center gap-1 shadow-sm"
                   >
                     {otpLoading && !otpSent ? (
