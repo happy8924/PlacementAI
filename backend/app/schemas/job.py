@@ -2,21 +2,24 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
-class JobCreate(BaseModel):
-    title: str = Field(..., min_length=2, max_length=150)
-    company_name: str = Field(..., min_length=2, max_length=150)
-    location: str
-    job_type: str = Field("Full-time", description="Full-time, Part-time, Internship")
-    description: str
-    requirements: List[str] = []
-    min_cgpa: float = Field(0.0, ge=0.0, le=10.0)
-    eligible_branches: List[str] = []
-    salary_package: str
-    deadline: datetime
-    status: str = Field("open", description="open or closed")
+class JobEligibility(BaseModel):
+    min_cgpa: float = 0.0
+    allowed_branches: List[str] = []
 
-class JobResponse(JobCreate):
-    id: str
-    created_by: str
-    created_at: datetime
-    updated_at: datetime
+class JobSchema(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+    company_id: str = Field(..., description="Reference to companies collection")
+    recruiter_id: str = Field(..., description="Reference to users collection")
+    title: str
+    description: str
+    skills_required: List[str] = []
+    package_lpa: Optional[float] = None
+    location: Optional[str] = None
+    eligibility: JobEligibility = Field(default_factory=JobEligibility)
+    status: str = Field(default="active", description="active | closed | draft")
+    application_deadline: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True

@@ -1,19 +1,30 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 
-class StudentProfileCreate(BaseModel):
-    user_id: str
-    roll_number: str = Field(..., min_length=2, max_length=50)
-    branch: str = Field(..., min_length=2, max_length=100)
-    graduation_year: int = Field(..., ge=2000, le=2100)
-    cgpa: float = Field(..., ge=0.0, le=10.0)
-    skills: List[str] = []
-    resume_url: Optional[str] = None
-    phone: Optional[str] = None
-    bio: Optional[str] = None
+class SocialLinks(BaseModel):
+    github: Optional[str] = None
+    linkedin: Optional[str] = None
 
-class StudentProfileResponse(StudentProfileCreate):
-    id: str
-    created_at: datetime
-    updated_at: datetime
+class StudentProfileSchema(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+    user_id: str = Field(..., description="Unique ObjectId reference to users collection")
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    college: Optional[str] = None
+    degree: Optional[str] = None
+    branch: Optional[str] = None
+    graduation_year: Optional[int] = None
+    cgpa: Optional[float] = None
+    skills: List[str] = []
+    links: Optional[SocialLinks] = Field(default_factory=SocialLinks)
+    resume_id: Optional[str] = None
+    placement_status: Optional[str] = Field(default="unplaced", description="unplaced | placed | optical")
+    interview_readiness_score: Optional[float] = 0.0
+    profile_completion: Optional[float] = 0.0
+    profile_completed: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
