@@ -23,7 +23,7 @@ export default function ForgotPasswordPage() {
     try {
       const data = await forgotPassword(email);
       if (data.success) {
-        setSuccess(data.message || 'If an account exists for this email, password reset instructions have been sent.');
+        setSuccess(data.message || 'Check your project Terminal for the password reset link. If you register with this email, you will receive the link there.');
       }
     } catch (err) {
       console.error('Forgot password error:', err);
