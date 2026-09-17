@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { getStudentProfile } from '../services/student';
 import { Eye, EyeOff, Lock, Mail, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
@@ -36,7 +37,20 @@ export default function LoginPage() {
         } else {
           // Redirect based on role
           const role = data.user.role;
-          if (role === 'student') navigate('/student/dashboard');
+          if (role === 'student') {
+            try {
+              const profData = await getStudentProfile();
+              const p = profData?.profile;
+              const isComp = p && (p.profile_completed || (p.full_name && p.branch && p.graduation_year && p.cgpa && p.skills?.length > 0 && (p.links?.github || p.links?.linkedin)));
+              if (isComp) {
+                navigate('/student/dashboard', { replace: true });
+              } else {
+                navigate('/student/profile', { replace: true });
+              }
+            } catch {
+              navigate('/student/dashboard', { replace: true });
+            }
+          }
           else if (role === 'recruiter') navigate('/recruiter/dashboard');
           else if (role === 'tpo') navigate('/tpo/dashboard');
           else if (role === 'admin') navigate('/admin/dashboard');
