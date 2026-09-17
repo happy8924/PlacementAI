@@ -14,8 +14,15 @@ import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
-// Protected Pages (Dashboards)
+// Protected Pages - Student Module
 import StudentDashboardPage from './pages/student/StudentDashboardPage';
+import StudentProfilePage from './pages/student/StudentProfilePage';
+import StudentResumePage from './pages/student/StudentResumePage';
+import StudentRoadmapPage from './pages/student/StudentRoadmapPage';
+import StudentInterviewPage from './pages/student/StudentInterviewPage';
+import StudentJobsPage from './pages/student/StudentJobsPage';
+
+// Protected Pages - Other Modules
 import RecruiterDashboardPage from './pages/recruiter/RecruiterDashboardPage';
 import TpoDashboardPage from './pages/tpo/TpoDashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
@@ -32,12 +39,52 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Protected Routes - Student */}
+          {/* Protected Routes - Student Module */}
+          <Route
+            path="/student/profile"
+            element={
+              <RouteGuard allowedRoles={['student']} requireCompleteProfile={false}>
+                <StudentProfilePage />
+              </RouteGuard>
+            }
+          />
           <Route
             path="/student/dashboard"
             element={
               <RouteGuard allowedRoles={['student']}>
                 <StudentDashboardPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/student/resume"
+            element={
+              <RouteGuard allowedRoles={['student']}>
+                <StudentResumePage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/student/roadmap"
+            element={
+              <RouteGuard allowedRoles={['student']}>
+                <StudentRoadmapPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/student/interview"
+            element={
+              <RouteGuard allowedRoles={['student']}>
+                <StudentInterviewPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/student/jobs"
+            element={
+              <RouteGuard allowedRoles={['student']}>
+                <StudentJobsPage />
               </RouteGuard>
             }
           />
