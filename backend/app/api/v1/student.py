@@ -46,6 +46,7 @@ def get_current_user(authorization: Optional[str] = Header(None), db: MongoDatab
 class SocialLinksInput(BaseModel):
     github: Optional[str] = None
     linkedin: Optional[str] = None
+    portfolio: Optional[str] = None
 
 class StudentProfileUpdateInput(BaseModel):
     full_name: Optional[str] = None
@@ -55,6 +56,11 @@ class StudentProfileUpdateInput(BaseModel):
     branch: Optional[str] = None
     graduation_year: Optional[int] = None
     cgpa: Optional[float] = None
+    tenth_percentage: Optional[float] = None
+    twelfth_percentage: Optional[float] = None
+    active_backlogs: Optional[int] = 0
+    internship_experience: Optional[str] = None
+    preferred_roles: List[str] = []
     skills: List[str] = []
     links: Optional[SocialLinksInput] = None
 
@@ -151,7 +157,7 @@ def update_student_profile(
     user_id_str = str(current_user["_id"])
 
     # Prepare update document
-    links_dict = data.links.model_dump() if data.links else {"github": "", "linkedin": ""}
+    links_dict = data.links.model_dump() if data.links else {"github": "", "linkedin": "", "portfolio": ""}
     
     update_fields = {
         "user_id": user_id_str,
@@ -162,6 +168,11 @@ def update_student_profile(
         "branch": data.branch or "",
         "graduation_year": data.graduation_year,
         "cgpa": data.cgpa,
+        "tenth_percentage": data.tenth_percentage,
+        "twelfth_percentage": data.twelfth_percentage,
+        "active_backlogs": data.active_backlogs if data.active_backlogs is not None else 0,
+        "internship_experience": data.internship_experience or "Fresher",
+        "preferred_roles": [r.strip() for r in data.preferred_roles if r.strip()],
         "skills": [s.strip() for s in data.skills if s.strip()],
         "links": links_dict,
         "updated_at": datetime.now(timezone.utc)
