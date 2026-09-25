@@ -8,6 +8,8 @@ from app.core.database import Database
 from app.api.v1.auth import router as auth_router
 from app.api.v1.student import router as student_router
 from app.api.v1.resume import router as resume_router
+from app.api.v1.jobs import router as jobs_router
+from app.api.v1.roadmap import router as roadmap_router
 
 # Setup basic logging config
 logging.basicConfig(
@@ -45,6 +47,8 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(student_router, prefix="/api/v1/student", tags=["Student Module"])
 app.include_router(resume_router, prefix="/api/v1/resume", tags=["Resume Intelligence"])
+app.include_router(jobs_router, prefix="/api/v1/jobs", tags=["Job Vacancies"])
+app.include_router(roadmap_router, prefix="/api/v1/roadmap", tags=["Career Roadmap Engine"])
 
 @app.get("/")
 def read_root():

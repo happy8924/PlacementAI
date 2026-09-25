@@ -87,7 +87,10 @@ class Database:
                 cls.db.activity_logs.create_index("user_id")
                 cls.db.activity_logs.create_index("created_at")
 
-                logger.info("Successfully initialized all 13 MongoDB collection indexes.")
+                # 14. student_roadmaps collection indexes
+                cls.db.student_roadmaps.create_index("user_id", unique=True)
+
+                logger.info("Successfully initialized MongoDB collection indexes.")
             except Exception as e:
                 logger.error(f"Failed to initialize database indexes: {e}")
 
