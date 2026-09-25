@@ -7,7 +7,20 @@ from bson import ObjectId
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.schemas.job import JobCreate, JobResponse
+from pydantic import BaseModel, Field
+
+class JobCreate(BaseModel):
+    title: str = Field(..., min_length=2, max_length=150)
+    company_name: str = Field(..., min_length=2, max_length=150)
+    location: str
+    job_type: str = Field("Full-time", description="Full-time, Part-time, Internship")
+    description: str
+    requirements: List[str] = []
+    min_cgpa: float = Field(0.0, ge=0.0, le=10.0)
+    eligible_branches: List[str] = []
+    salary_package: str
+    deadline: datetime
+    status: str = Field("open", description="open or closed")
 
 logger = logging.getLogger(__name__)
 
