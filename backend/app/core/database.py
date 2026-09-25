@@ -90,7 +90,10 @@ class Database:
                 cls.db.password_reset_tokens.create_index("email")
                 cls.db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
 
-                logger.info("Successfully initialized all 14 MongoDB collection indexes.")
+                # 14. student_roadmaps collection indexes
+                cls.db.student_roadmaps.create_index("user_id", unique=True)
+
+                logger.info("Successfully initialized MongoDB collection indexes.")
             except Exception as e:
                 logger.error(f"Failed to initialize database indexes: {e}")
 
