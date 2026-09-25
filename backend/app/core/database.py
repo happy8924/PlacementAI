@@ -32,60 +32,63 @@ class Database:
 
     @classmethod
     def init_indexes(cls):
-        """Create indices on all 13 collections in the PlacementAI database schema."""
+        """Create indices on all 14 collections in the PlacementAI database schema."""
         if cls.db is not None:
             try:
                 # 1. users collection indexes
                 cls.db.users.create_index("email", unique=True)
                 cls.db.users.create_index("role")
 
-                # 2. otp_codes collection indexes (TTL auto-expiry)
-                cls.db.otp_codes.create_index("expires_at", expireAfterSeconds=0)
-                cls.db.otp_codes.create_index("email")
-
-                # 3. password_reset_tokens collection indexes (TTL auto-expiry)
-                cls.db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
-
-                # 4. student_profiles collection indexes
+                # 2. student_profiles collection indexes
                 cls.db.student_profiles.create_index("user_id", unique=True)
                 cls.db.student_profiles.create_index("branch")
 
-                # 5. companies collection indexes
+                # 3. companies collection indexes
                 cls.db.companies.create_index("name", unique=True)
-                cls.db.companies.create_index("industry")
+                cls.db.companies.create_index("recruiter_id")
 
-                # 6. jobs collection indexes
+                # 4. jobs collection indexes
+                cls.db.jobs.create_index("company_id")
+                cls.db.jobs.create_index("recruiter_id")
                 cls.db.jobs.create_index("status")
-                cls.db.jobs.create_index("created_by")
-                cls.db.jobs.create_index("company_name")
 
-                # 7. applications collection indexes
+                # 5. applications collection indexes (Prevent duplicate job_id + student_id)
                 cls.db.applications.create_index([("job_id", 1), ("student_id", 1)], unique=True)
                 cls.db.applications.create_index("student_id")
                 cls.db.applications.create_index("status")
 
-                # 8. placement_rounds collection indexes
-                cls.db.placement_rounds.create_index([("application_id", 1), ("round_number", 1)], unique=True)
-                cls.db.placement_rounds.create_index("status")
+                # 6. resumes collection indexes
+                cls.db.resumes.create_index("user_id")
+                cls.db.resumes.create_index([("user_id", 1), ("is_active", 1)])
 
-                # 9. ai_interviews collection indexes
-                cls.db.ai_interviews.create_index("student_id")
-                cls.db.ai_interviews.create_index("created_at")
+                # 7. ai_analysis collection indexes
+                cls.db.ai_analysis.create_index("resume_id")
+                cls.db.ai_analysis.create_index("user_id")
 
-                # 10. resume_reviews collection indexes
-                cls.db.resume_reviews.create_index("student_id")
-                cls.db.resume_reviews.create_index("created_at")
+                # 8. learning_roadmaps collection indexes
+                cls.db.learning_roadmaps.create_index("user_id")
+                cls.db.learning_roadmaps.create_index("resume_id")
 
-                # 11. placement_stats collection indexes
-                cls.db.placement_stats.create_index("batch_year", unique=True)
+                # 9. interviews collection indexes
+                cls.db.interviews.create_index("user_id")
+                cls.db.interviews.create_index("is_completed")
 
-                # 12. notifications collection indexes
-                cls.db.notifications.create_index("user_id")
-                cls.db.notifications.create_index("read")
+                # 10. placement_rounds collection indexes
+                cls.db.placement_rounds.create_index("application_id")
 
-                # 13. activity_logs collection indexes
+                # 11. placement_stats collection indexes (no specific index required)
+
+                # 12. activity_logs collection indexes
                 cls.db.activity_logs.create_index("user_id")
-                cls.db.activity_logs.create_index("created_at")
+                cls.db.activity_logs.create_index("timestamp")
+
+                # 13. otp_codes collection indexes (TTL auto-expiry)
+                cls.db.otp_codes.create_index("email")
+                cls.db.otp_codes.create_index("expires_at", expireAfterSeconds=0)
+
+                # 14. password_reset_tokens collection indexes (TTL auto-expiry)
+                cls.db.password_reset_tokens.create_index("email")
+                cls.db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
 
                 # 14. student_roadmaps collection indexes
                 cls.db.student_roadmaps.create_index("user_id", unique=True)
