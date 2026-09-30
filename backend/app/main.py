@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.database import Database
 from app.api.v1.auth import router as auth_router
 from app.api.v1.student import router as student_router
+from app.api.v1.admin import router as admin_router
 
 # Setup basic logging config
 logging.basicConfig(
@@ -43,6 +44,7 @@ app.add_middleware(
 # Register API Routers
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(student_router, prefix="/api/v1/student", tags=["Student Module"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin Module"])
 
 @app.get("/")
 def read_root():
