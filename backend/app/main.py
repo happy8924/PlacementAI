@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.database import Database
 from app.api.v1.auth import router as auth_router
 from app.api.v1.student import router as student_router
+from app.api.v1.admin import router as admin_router
 from app.api.v1.resume import router as resume_router
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.roadmap import router as roadmap_router
@@ -57,3 +58,5 @@ def read_root():
         "service": "PlacementAI Core API",
         "status": "online"
     }
+
+

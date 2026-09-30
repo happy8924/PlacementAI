@@ -26,6 +26,16 @@ import StudentJobsPage from './pages/student/StudentJobsPage';
 import RecruiterDashboardPage from './pages/recruiter/RecruiterDashboardPage';
 import TpoDashboardPage from './pages/tpo/TpoDashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import UsersListPage from './pages/admin/UsersListPage';
+import UserDetailPage from './pages/admin/UserDetailPage';
+import RolesPage from './pages/admin/RolesPage';
+import PlacementMonitoringPage from './pages/admin/PlacementMonitoringPage';
+import AiCenterPage from './pages/admin/AiCenterPage';
+import SystemHealthPage from './pages/admin/SystemHealthPage';
+import AuditLogsPage from './pages/admin/AuditLogsPage';
+import ReportsPage from './pages/admin/ReportsPage';
+import SettingsPage from './pages/admin/SettingsPage';
+import AdminProfilePage from './pages/admin/AdminProfilePage';
 
 function App() {
   return (
@@ -109,12 +119,116 @@ function App() {
             }
           />
 
-          {/* Protected Routes - Admin */}
+          {/* Protected Routes - Admin Module */}
           <Route
             path="/admin/dashboard"
             element={
               <RouteGuard allowedRoles={['admin']}>
                 <AdminDashboardPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <UsersListPage title="User Governance & Management" />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/users/:id"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <UserDetailPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/students"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <UsersListPage initialRole="student" title="Student Directory" />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/recruiters"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <UsersListPage initialRole="recruiter" title="Recruiter Directory" />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/tpos"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <UsersListPage initialRole="tpo" title="TPO / Institution Directory" />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/roles"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <RolesPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/placement"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <PlacementMonitoringPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/ai-center"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <AiCenterPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/system"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <SystemHealthPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/audit"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <AuditLogsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/reports"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <ReportsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <SettingsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/admin/profile"
+            element={
+              <RouteGuard allowedRoles={['admin']}>
+                <AdminProfilePage />
               </RouteGuard>
             }
           />
