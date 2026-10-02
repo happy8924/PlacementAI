@@ -46,6 +46,7 @@ app.add_middleware(
 
 # Register API Routers
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin Module"])
 app.include_router(student_router, prefix="/api/v1/student", tags=["Student Module"])
 app.include_router(resume_router, prefix="/api/v1/resume", tags=["Resume Intelligence"])
 app.include_router(jobs_router, prefix="/api/v1/jobs", tags=["Job Vacancies"])
