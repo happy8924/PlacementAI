@@ -14,3 +14,8 @@ export const getStudentDashboard = async () => {
   const response = await api.get('/student/dashboard');
   return response.data;
 };
+
+export const getStudentInterviews = async () => {
+  const response = await api.get('/student/interviews');
+  return response.data;
+};

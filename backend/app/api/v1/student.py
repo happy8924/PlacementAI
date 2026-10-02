@@ -252,3 +252,80 @@ def get_student_dashboard(current_user: dict = Depends(get_current_user), db: Mo
         },
         "recent_activities": recent_activities
     }
+
+@router.get("/interviews")
+def get_student_interviews(current_user: dict = Depends(get_current_user), db: MongoDatabase = Depends(get_db)):
+    user_id_str = str(current_user["_id"])
+    from bson import ObjectId
+    
+    interviews = []
+
+    # 1. Fetch AI Mock Interviews from `interviews` collection
+    interviews_cursor = db.interviews.find({"user_id": user_id_str})
+    for doc in interviews_cursor:
+        interviews.append({
+            "id": str(doc["_id"]),
+            "meeting_title": "AI Mock Interview",
+            "interview_type": "Mock",
+            "date": doc.get("created_at").strftime("%Y-%m-%d") if doc.get("created_at") else "TBA",
+            "time": doc.get("created_at").strftime("%H:%M") if doc.get("created_at") else "TBA",
+            "join_link": doc.get("join_link") or "", # Minimal addition for future
+            "status": "completed" if doc.get("is_completed") else "scheduled",
+            "company_name": "PlacementAI Simulator",
+            "job_role": doc.get("job_role", "Practice Role")
+        })
+
+    # 2. Fetch Scheduled Interviews from `placement_rounds` via `applications`
+    # Try both string and ObjectId for student_id
+    try:
+        user_obj_id = ObjectId(user_id_str)
+        apps = list(db.applications.find({"$or": [{"student_id": user_id_str}, {"student_id": user_obj_id}]}))
+    except Exception:
+        apps = list(db.applications.find({"student_id": user_id_str}))
+
+    if apps:
+        app_ids = [app["_id"] for app in apps]
+        rounds_cursor = db.placement_rounds.find({"application_id": {"$in": app_ids}})
+        
+        for round_doc in rounds_cursor:
+            # Find the parent application
+            app = next((a for a in apps if str(a["_id"]) == str(round_doc["application_id"])), None)
+            
+            job = {}
+            company = {}
+            
+            if app and app.get("job_id"):
+                try:
+                    job_doc = db.jobs.find_one({"_id": ObjectId(app["job_id"])})
+                except Exception:
+                    job_doc = db.jobs.find_one({"_id": app["job_id"]})
+                    
+                if job_doc:
+                    job = {"id": str(job_doc["_id"]), "title": job_doc.get("title", "")}
+                    
+                    if job_doc.get("company_id"):
+                        try:
+                            comp_doc = db.companies.find_one({"_id": ObjectId(job_doc["company_id"])})
+                        except Exception:
+                            comp_doc = db.companies.find_one({"_id": job_doc["company_id"]})
+                        if comp_doc:
+                            company = {"id": str(comp_doc["_id"]), "name": comp_doc.get("name", "")}
+
+            scheduled_at = round_doc.get("scheduled_at")
+            
+            interviews.append({
+                "id": str(round_doc["_id"]),
+                "meeting_title": round_doc.get("notes") or f"{round_doc.get('round_type', 'Interview')} Round",
+                "interview_type": round_doc.get("round_type", "Technical"),
+                "date": scheduled_at.strftime("%Y-%m-%d") if scheduled_at else "TBA",
+                "time": scheduled_at.strftime("%H:%M") if scheduled_at else "TBA",
+                "join_link": round_doc.get("meeting_url") or "", # Minimal addition for link
+                "status": round_doc.get("result", "scheduled"),
+                "company_name": company.get("name") or "Unknown Company",
+                "job_role": job.get("title") or "Unknown Role"
+            })
+
+    return {
+        "success": True,
+        "interviews": interviews
+    }
