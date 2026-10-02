@@ -1,22 +1,15 @@
 import React from 'react';
-import { Menu, LogOut, Sparkles } from 'lucide-react';
+import { Menu, Sparkles } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
 
 export default function StudentHeader({ title, subtitle, onMenuToggle, showSidebarToggle = true }) {
-  const { user, studentProfile, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user, studentProfile } = useAuth();
 
   const displayName = studentProfile?.full_name || user?.name || 'Student';
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
-    <header className="bg-card-bg border-b border-theme sticky top-0 z-20 px-6 py-4">
-      <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
+    <header className="h-[76px] bg-card-bg border-b border-theme sticky top-0 z-20 px-6 flex items-center">
+      <div className="flex items-center justify-between w-full gap-4 max-w-7xl mx-auto">
         
         {/* Left Side: Mobile Menu Button & Page Title */}
         <div className="flex items-center gap-4">
@@ -38,21 +31,22 @@ export default function StudentHeader({ title, subtitle, onMenuToggle, showSideb
           </div>
         </div>
 
-        {/* Right Side: Student Profile & Logout */}
+        {/* Right Side: Profile Status & Avatar */}
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-xs font-bold text-primary truncate">{displayName}</span>
-            <span className="text-[10px] text-secondary font-mono truncate">{user?.email}</span>
-          </div>
+          {studentProfile && (
+            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-mono font-medium ${
+              studentProfile.profile_completed 
+                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
+                : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+            }`}>
+              {studentProfile.profile_completed && <Sparkles className="w-3.5 h-3.5" />}
+              Profile {Math.round(studentProfile.profile_completion || 0)}%
+            </div>
+          )}
 
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-theme bg-secondary text-secondary hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/5 transition-all text-xs font-mono font-bold uppercase tracking-wider"
-            title="Log Out"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
+          <div className="h-9 w-9 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500 font-bold text-sm cursor-pointer hover:bg-indigo-500/20 transition-colors" title={displayName}>
+            {displayName.charAt(0).toUpperCase()}
+          </div>
         </div>
 
       </div>
