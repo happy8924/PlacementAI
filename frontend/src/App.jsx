@@ -21,6 +21,10 @@ import StudentResumePage from './pages/student/StudentResumePage';
 import StudentRoadmapPage from './pages/student/StudentRoadmapPage';
 import StudentInterviewPage from './pages/student/StudentInterviewPage';
 import StudentJobsPage from './pages/student/StudentJobsPage';
+import StudentApplicationsPage from './pages/student/StudentApplicationsPage';
+import StudentBookmarksPage from './pages/student/StudentBookmarksPage';
+import StudentNotificationsPage from './pages/student/StudentNotificationsPage';
+import StudentSettingsPage from './pages/student/StudentSettingsPage';
 
 // Protected Pages - Other Modules
 import RecruiterDashboardPage from './pages/recruiter/RecruiterDashboardPage';
@@ -85,6 +89,38 @@ function App() {
             element={
               <RouteGuard allowedRoles={['student']}>
                 <StudentJobsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/student/applications"
+            element={
+              <RouteGuard allowedRoles={['student']}>
+                <StudentApplicationsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/student/bookmarks"
+            element={
+              <RouteGuard allowedRoles={['student']}>
+                <StudentBookmarksPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/student/notifications"
+            element={
+              <RouteGuard allowedRoles={['student']}>
+                <StudentNotificationsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/student/settings"
+            element={
+              <RouteGuard allowedRoles={['student']}>
+                <StudentSettingsPage />
               </RouteGuard>
             }
           />
