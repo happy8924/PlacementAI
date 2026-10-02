@@ -3,11 +3,15 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
   LayoutDashboard,
-  User,
   FileText,
-  Map,
-  Video,
+  Compass,
+  Mic,
   Briefcase,
+  CheckSquare,
+  Bookmark,
+  Bell,
+  User,
+  Settings,
   LogOut,
   Sparkles,
   X
@@ -24,11 +28,15 @@ export default function StudentSidebar({ isOpen, onClose }) {
 
   const navItems = [
     { name: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-    { name: 'My Profile', path: '/student/profile', icon: User },
-    { name: 'Resume', path: '/student/resume', icon: FileText },
-    { name: 'AI Roadmap', path: '/student/roadmap', icon: Map },
-    { name: 'Mock Interview', path: '/student/interview', icon: Video },
-    { name: 'Jobs', path: '/student/jobs', icon: Briefcase },
+    { name: 'AI Resume Analysis', path: '/student/resume', icon: FileText, badge: 'AI', badgeBg: 'bg-blue-500/10 text-blue-600' },
+    { name: 'Skill Gap & Roadmap', path: '/student/roadmap', icon: Compass, badge: 'New', badgeBg: 'bg-indigo-500/10 text-indigo-600' },
+    { name: 'Mock AI Interview', path: '/student/interview', icon: Mic },
+    { name: 'Jobs & Opportunities', path: '/student/jobs', icon: Briefcase },
+    { name: 'My Applications', path: '/student/applications', icon: CheckSquare },
+    { name: 'Saved Bookmarks', path: '/student/bookmarks', icon: Bookmark },
+    { name: 'Notifications', path: '/student/notifications', icon: Bell },
+    { name: 'Profile & Portfolio', path: '/student/profile', icon: User },
+    { name: 'Settings', path: '/student/settings', icon: Settings },
   ];
 
   const displayName = studentProfile?.full_name || user?.name || 'Student';
@@ -82,7 +90,7 @@ export default function StudentSidebar({ isOpen, onClose }) {
               to={item.path}
               onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3.5 px-3.5 py-3 rounded-xl font-medium text-xs tracking-wide transition-all ${
+                `flex items-center justify-between px-3.5 py-3 rounded-xl font-medium text-xs tracking-wide transition-all ${
                   isActive
                     ? 'bg-blue-600 text-white font-semibold shadow-md shadow-blue-600/20'
                     : 'text-secondary hover:text-primary hover:bg-secondary'
@@ -91,8 +99,21 @@ export default function StudentSidebar({ isOpen, onClose }) {
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-secondary'}`} />
-                  <span>{item.name}</span>
+                  <div className="flex items-center gap-3.5">
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-secondary'}`} />
+                    <span>{item.name}</span>
+                  </div>
+                  {item.badge && (
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : item.badgeBg || 'bg-blue-500/10 text-blue-600'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
