@@ -238,6 +238,21 @@ def analyze_resume_content(resume_text: str, student_name: str) -> Dict[str, Any
     if word_count < 150:
         improvements.append("Resume content appears too short. Expand on key technical projects and responsibilities.")
 
+    # 6. Basic Project Extraction Heuristic
+    projects = []
+    # Look for Github links to infer projects
+    github_links = re.findall(r'github\.com/([\w-]+/[\w-]+)', resume_text, re.IGNORECASE)
+    for idx, repo in enumerate(set(github_links)):
+        repo_name = repo.split('/')[-1].replace('-', ' ').title()
+        projects.append({
+            "title": repo_name,
+            "description": "Auto-extracted from GitHub repository link found in resume.",
+            "technologies": detected_skills[:4],
+            "link": "",
+            "github": f"https://github.com/{repo}",
+            "role": recommended_roles[0] if recommended_roles else ""
+        })
+
     return {
         "ats_score": round(total_ats_score, 1),
         "verified": True,
@@ -252,5 +267,6 @@ def analyze_resume_content(resume_text: str, student_name: str) -> Dict[str, Any
         "word_count": word_count,
         "strengths": strengths,
         "improvements": improvements,
-        "missing_keywords": list(set(missing_keywords))[:5]
+        "missing_keywords": list(set(missing_keywords))[:5],
+        "projects": projects
     }

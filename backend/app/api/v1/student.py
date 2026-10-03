@@ -62,6 +62,7 @@ class StudentProfileUpdateInput(BaseModel):
     internship_experience: Optional[str] = None
     preferred_roles: List[str] = []
     skills: List[str] = []
+    projects: List[Dict[str, Any]] = []
     links: Optional[SocialLinksInput] = None
 
 # ── Helper function for profile completion calculation ──
@@ -124,6 +125,7 @@ def get_student_profile(current_user: dict = Depends(get_current_user), db: Mong
             "graduation_year": student_details.get("graduation_year"),
             "cgpa": None,
             "skills": [],
+            "projects": [],
             "links": {"github": "", "linkedin": ""},
             "resume_id": None,
             "placement_status": "unplaced",
@@ -137,6 +139,17 @@ def get_student_profile(current_user: dict = Depends(get_current_user), db: Mong
     completion_pct, is_complete = calculate_profile_completion(profile, current_user.get("name", ""))
     profile["profile_completion"] = completion_pct
     profile["profile_completed"] = is_complete
+
+    # --- Auto-sync projects from active AI resume if none exist ---
+    if not profile.get("projects"):
+        active_resume = db.resumes.find_one({"user_id": user_id_str, "is_active": True})
+        if active_resume and active_resume.get("extracted_data"):
+            resume_projects = active_resume["extracted_data"].get("projects", [])
+            if resume_projects:
+                profile["projects"] = resume_projects
+                db.student_profiles.update_one({"user_id": user_id_str}, {"$set": {"projects": resume_projects}})
+    else:
+        profile.setdefault("projects", [])
 
     # Format ID
     if "_id" in profile:
@@ -174,6 +187,7 @@ def update_student_profile(
         "internship_experience": data.internship_experience or "Fresher",
         "preferred_roles": [r.strip() for r in data.preferred_roles if r.strip()],
         "skills": [s.strip() for s in data.skills if s.strip()],
+        "projects": data.projects,
         "links": links_dict,
         "updated_at": datetime.now(timezone.utc)
     }
@@ -329,3 +343,218 @@ def get_student_interviews(current_user: dict = Depends(get_current_user), db: M
         "success": True,
         "interviews": interviews
     }
+
+# ──────────── Bookmarks ────────────
+
+@router.get("/bookmarks")
+def get_student_bookmarks(current_user: dict = Depends(get_current_user), db: MongoDatabase = Depends(get_db)):
+    user_id_str = str(current_user["_id"])
+    from bson import ObjectId
+    
+    bookmarks_cursor = db.bookmarks.find({"user_id": user_id_str})
+    job_ids = []
+    bookmark_map = {}
+    for bm in bookmarks_cursor:
+        job_id_str = bm.get("job_id")
+        job_ids.append(job_id_str)
+        bookmark_map[job_id_str] = str(bm["_id"])
+    
+    if not job_ids:
+        return {"success": True, "bookmarks": []}
+    
+    # Fetch actual job documents
+    obj_ids = []
+    for jid in job_ids:
+        try:
+            obj_ids.append(ObjectId(jid))
+        except Exception:
+            pass
+    
+    jobs_cursor = db.jobs.find({"_id": {"$in": obj_ids}})
+    bookmarks = []
+    for doc in jobs_cursor:
+        job_id_str = str(doc["_id"])
+        doc["id"] = job_id_str
+        doc["bookmark_id"] = bookmark_map.get(job_id_str)
+        del doc["_id"]
+        bookmarks.append(doc)
+    
+    return {"success": True, "bookmarks": bookmarks}
+
+@router.post("/bookmarks")
+def add_bookmark(
+    data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: MongoDatabase = Depends(get_db)
+):
+    user_id_str = str(current_user["_id"])
+    job_id = data.get("job_id")
+    
+    if not job_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="job_id is required")
+    
+    # Prevent duplicate bookmarks
+    existing = db.bookmarks.find_one({"user_id": user_id_str, "job_id": job_id})
+    if existing:
+        return {"success": True, "message": "Already bookmarked", "bookmark_id": str(existing["_id"])}
+    
+    result = db.bookmarks.insert_one({
+        "user_id": user_id_str,
+        "job_id": job_id,
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "message": "Job bookmarked", "bookmark_id": str(result.inserted_id)}
+
+@router.delete("/bookmarks/{job_id}")
+def remove_bookmark(
+    job_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: MongoDatabase = Depends(get_db)
+):
+    user_id_str = str(current_user["_id"])
+    result = db.bookmarks.delete_one({"user_id": user_id_str, "job_id": job_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bookmark not found")
+    
+    return {"success": True, "message": "Bookmark removed"}
+
+# ──────────── Notifications ────────────
+
+@router.get("/notifications")
+def get_student_notifications(current_user: dict = Depends(get_current_user), db: MongoDatabase = Depends(get_db)):
+    user_id_str = str(current_user["_id"])
+    
+    notifications = []
+    cursor = db.activity_logs.find({"user_id": user_id_str}).sort("timestamp", -1).limit(20)
+    for doc in cursor:
+        notifications.append({
+            "id": str(doc["_id"]),
+            "action": doc.get("action", ""),
+            "details": doc.get("details", {}),
+            "is_read": doc.get("is_read", False),
+            "timestamp": doc.get("timestamp") or doc.get("created_at")
+        })
+    
+    unread_count = db.activity_logs.count_documents({"user_id": user_id_str, "is_read": {"$ne": True}})
+    
+    return {"success": True, "notifications": notifications, "unread_count": unread_count}
+
+@router.put("/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: MongoDatabase = Depends(get_db)
+):
+    from bson import ObjectId
+    user_id_str = str(current_user["_id"])
+    
+    try:
+        result = db.activity_logs.update_one(
+            {"_id": ObjectId(notification_id), "user_id": user_id_str},
+            {"$set": {"is_read": True}}
+        )
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid notification ID")
+    
+    return {"success": True, "modified": result.modified_count > 0}
+
+@router.put("/notifications/read-all")
+def mark_all_notifications_read(
+    current_user: dict = Depends(get_current_user),
+    db: MongoDatabase = Depends(get_db)
+):
+    user_id_str = str(current_user["_id"])
+    result = db.activity_logs.update_many(
+        {"user_id": user_id_str, "is_read": {"$ne": True}},
+        {"$set": {"is_read": True}}
+    )
+    return {"success": True, "modified": result.modified_count > 0}
+
+# ──────────── Applications ────────────
+
+@router.get("/applications")
+def get_student_applications(current_user: dict = Depends(get_current_user), db: MongoDatabase = Depends(get_db)):
+    user_id_str = str(current_user["_id"])
+    from bson import ObjectId
+    
+    try:
+        user_obj_id = ObjectId(user_id_str)
+        apps = list(db.applications.find({"$or": [{"student_id": user_id_str}, {"student_id": user_obj_id}]}))
+    except Exception:
+        apps = list(db.applications.find({"student_id": user_id_str}))
+    
+    result = []
+    for app in apps:
+        job = {}
+        if app.get("job_id"):
+            try:
+                job_doc = db.jobs.find_one({"_id": ObjectId(app["job_id"])})
+            except Exception:
+                job_doc = db.jobs.find_one({"_id": app["job_id"]})
+            if job_doc:
+                job = {
+                    "id": str(job_doc["_id"]),
+                    "title": job_doc.get("title", ""),
+                    "company_name": job_doc.get("company_name", ""),
+                    "location": job_doc.get("location", ""),
+                    "job_type": job_doc.get("job_type", ""),
+                    "salary_package": job_doc.get("salary_package", "")
+                }
+        
+        result.append({
+            "id": str(app["_id"]),
+            "job_id": str(app.get("job_id", "")),
+            "status": app.get("status", "applied"),
+            "applied_at": app.get("applied_at"),
+            "job": job
+        })
+    
+    return {"success": True, "applications": result}
+
+@router.post("/applications")
+def apply_to_job(
+    data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: MongoDatabase = Depends(get_db)
+):
+    user_id_str = str(current_user["_id"])
+    from bson import ObjectId
+    job_id = data.get("job_id")
+    
+    if not job_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="job_id is required")
+    
+    # Check job exists
+    try:
+        job = db.jobs.find_one({"_id": ObjectId(job_id)})
+    except Exception:
+        job = None
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    # Prevent duplicate application
+    existing = db.applications.find_one({"job_id": ObjectId(job_id), "student_id": ObjectId(user_id_str)})
+    if not existing:
+        existing = db.applications.find_one({"job_id": job_id, "student_id": user_id_str})
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already applied to this job")
+    
+    result = db.applications.insert_one({
+        "job_id": ObjectId(job_id),
+        "student_id": ObjectId(user_id_str),
+        "status": "applied",
+        "applied_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
+    })
+    
+    # Log activity
+    db.activity_logs.insert_one({
+        "user_id": user_id_str,
+        "action": "applied_to_job",
+        "details": {"job_id": job_id, "job_title": job.get("title", ""), "company": job.get("company_name", "")},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "message": "Application submitted", "application_id": str(result.inserted_id)}
