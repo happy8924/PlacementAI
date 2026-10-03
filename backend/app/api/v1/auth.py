@@ -346,3 +346,51 @@ def reset_password(request: ResetPasswordRequest, db: MongoDatabase = Depends(ge
         success=True,
         message="Password has been reset successfully."
     )
+
+# ──────────── Change Password ────────────
+
+from app.core.security import decode_access_token
+
+def get_current_user_for_auth(authorization: Optional[str] = Header(None), db: MongoDatabase = Depends(get_db)) -> dict:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid auth header")
+    payload = decode_access_token(parts[1])
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    
+    from bson import ObjectId
+    user = db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+from app.schemas.auth import ChangePasswordRequest
+
+@router.put("/change-password", response_model=GenericResponse)
+def change_password(
+    request: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user_for_auth),
+    db: MongoDatabase = Depends(get_db)
+):
+    if not verify_password(request.current_password, current_user["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password."
+        )
+
+    hashed_pwd = hash_password(request.new_password)
+    db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"password_hash": hashed_pwd, "updated_at": datetime.now(timezone.utc)}}
+    )
+
+    return GenericResponse(
+        success=True,
+        message="Password changed successfully."
+    )

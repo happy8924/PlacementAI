@@ -93,6 +93,10 @@ class Database:
                 # 14. student_roadmaps collection indexes
                 cls.db.student_roadmaps.create_index("user_id", unique=True)
 
+                # 15. bookmarks collection indexes
+                cls.db.bookmarks.create_index([("user_id", 1), ("job_id", 1)], unique=True)
+                cls.db.bookmarks.create_index("user_id")
+
                 logger.info("Successfully initialized MongoDB collection indexes.")
             except Exception as e:
                 logger.error(f"Failed to initialize database indexes: {e}")

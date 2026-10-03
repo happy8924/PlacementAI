@@ -22,7 +22,9 @@ import {
   Target,
   FileCheck,
   Building2,
-  Check
+  Check,
+  FolderGit2,
+  Trash2
 } from 'lucide-react';
 
 const DEGREE_OPTIONS = [
@@ -113,6 +115,9 @@ export default function StudentProfilePage() {
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [portfolioUrl, setPortfolioUrl] = useState('');
 
+  // Projects
+  const [projects, setProjects] = useState([]);
+
   // UI States
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
@@ -144,6 +149,7 @@ export default function StudentProfilePage() {
           setPreferredRoles(p.preferred_roles || []);
 
           setSkills(p.skills || []);
+          setProjects(p.projects || []);
           if (p.links) {
             setGithubUrl(p.links.github || '');
             setLinkedinUrl(p.links.linkedin || '');
@@ -187,8 +193,22 @@ export default function StudentProfilePage() {
     }
   };
 
+  // Project Handlers
+  const handleAddProject = () => {
+    setProjects([...projects, { title: '', description: '', technologies: [], link: '', github: '', role: '' }]);
+  };
+  const handleProjectChange = (index, field, value) => {
+    const updated = [...projects];
+    updated[index][field] = value;
+    setProjects(updated);
+  };
+  const handleRemoveProject = (index) => {
+    setProjects(projects.filter((_, i) => i !== index));
+  };
+
   // Dynamic Progress Calculation
   const isBasicValid = Boolean(fullName && fullName.trim().length >= 2);
+  const isPhoneValid = !phone || /^\d{10}$/.test(phone.trim());
   const isAcademicValid = Boolean(
     degree &&
     branch &&
@@ -196,18 +216,26 @@ export default function StudentProfilePage() {
     cgpa !== '' && !isNaN(Number(cgpa)) && Number(cgpa) >= 0 && Number(cgpa) <= 10.0
   );
   const isSkillsValid = Boolean(skills.length > 0);
+
+  const isValidUrl = (url) => !url || /^https?:\/\/.+/.test(url.trim());
   const isLinksValid = Boolean(
-    (githubUrl && githubUrl.trim().length > 5) ||
-    (linkedinUrl && linkedinUrl.trim().length > 5)
+    (githubUrl && githubUrl.trim().length > 5 && isValidUrl(githubUrl)) ||
+    (linkedinUrl && linkedinUrl.trim().length > 5 && isValidUrl(linkedinUrl))
   );
+  
+  const allLinksFormatValid = isValidUrl(githubUrl) && isValidUrl(linkedinUrl) && isValidUrl(portfolioUrl);
+  const isProjectsValid = Boolean(projects.length > 0 && projects.some(p => p.title.trim().length >= 2));
 
   const completionPct = Math.min(
     100,
-    (isBasicValid ? 25 : 0) +
-    (isAcademicValid ? 35 : 0) +
+    (isBasicValid ? 20 : 0) +
+    (isAcademicValid ? 30 : 0) +
     (isSkillsValid ? 20 : 0) +
-    (isLinksValid ? 20 : 0)
+    (isLinksValid ? 15 : 0) +
+    (isProjectsValid ? 15 : 0)
   );
+
+  const trimText = (text) => text ? text.trim().replace(/\s{2,}/g, ' ') : '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -218,21 +246,44 @@ export default function StudentProfilePage() {
       setErrorMessage('Please enter your full name.');
       return;
     }
+    if (!isPhoneValid) {
+      setErrorMessage('Mobile number must be exactly 10 digits.');
+      return;
+    }
+
+    const hasValidDecimals = (val) => {
+      if (!val) return true;
+      const str = String(val);
+      return !str.includes('.') || str.split('.')[1].length <= 2;
+    };
+
+    if (!hasValidDecimals(cgpa) || !hasValidDecimals(tenthPercentage) || !hasValidDecimals(twelfthPercentage)) {
+      setErrorMessage('Percentages and CGPA can have up to two decimal places only (e.g. 79.67).');
+      return;
+    }
+
     if (!isAcademicValid) {
       setErrorMessage('Please select your Degree, Branch, Graduation Year, and a valid CGPA (0.0 - 10.0).');
       return;
     }
-    if (!isLinksValid) {
-      setErrorMessage('Please provide at least one professional link (LinkedIn or GitHub URL).');
+    if (!isLinksValid || !allLinksFormatValid) {
+      setErrorMessage('Please provide at least one valid professional link (LinkedIn or GitHub starting with http:// or https://).');
+      return;
+    }
+
+    // Validate project URLs
+    const invalidProjectUrls = projects.some(p => (p.link && !isValidUrl(p.link)) || (p.github && !isValidUrl(p.github)));
+    if (invalidProjectUrls) {
+      setErrorMessage('Please ensure all project links start with http:// or https://');
       return;
     }
 
     setSaving(true);
     try {
       const payload = {
-        full_name: fullName,
-        phone,
-        college,
+        full_name: trimText(fullName),
+        phone: phone ? phone.trim() : null,
+        college: trimText(college),
         degree,
         branch,
         graduation_year: Number(graduationYear),
@@ -243,10 +294,20 @@ export default function StudentProfilePage() {
         internship_experience: internshipExperience,
         preferred_roles: preferredRoles,
         skills,
+        projects: projects
+          .filter(p => p.title.trim())
+          .map(p => ({
+            ...p,
+            title: trimText(p.title),
+            description: trimText(p.description),
+            role: trimText(p.role),
+            link: p.link ? p.link.trim() : null,
+            github: p.github ? p.github.trim() : null
+          })),
         links: {
-          github: githubUrl,
-          linkedin: linkedinUrl,
-          portfolio: portfolioUrl
+          github: githubUrl ? githubUrl.trim() : null,
+          linkedin: linkedinUrl ? linkedinUrl.trim() : null,
+          portfolio: portfolioUrl ? portfolioUrl.trim() : null
         }
       };
 
@@ -740,11 +801,103 @@ export default function StudentProfilePage() {
                 </div>
               </div>
 
-              {/* Section 5: Professional & Portfolio Links */}
+              {/* Section 5: Projects */}
+              <div className="bg-card-bg border border-theme rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-theme text-primary font-bold text-sm justify-between">
+                  <div className="flex items-center gap-2">
+                    <FolderGit2 className="w-4 h-4 text-emerald-600" />
+                    <span>5. Projects (Auto-Synced from Resume)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddProject}
+                    className="text-[10px] uppercase font-mono font-bold bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
+                  >
+                    + Add Project
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {projects.length === 0 ? (
+                    <p className="text-xs text-secondary italic font-mono text-center py-4">No projects added yet. Add manually or upload a resume to auto-sync.</p>
+                  ) : (
+                    projects.map((proj, idx) => (
+                      <div key={idx} className="p-4 border border-theme rounded-xl bg-secondary/5 space-y-4 relative group">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveProject(idx)}
+                          className="absolute top-3 right-3 text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove Project"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-mono font-bold uppercase text-primary tracking-wider">Project Title *</label>
+                          <input
+                            type="text"
+                            value={proj.title}
+                            onChange={(e) => handleProjectChange(idx, 'title', e.target.value)}
+                            placeholder="e.g. AI Placement Platform"
+                            className="w-full px-3 py-2 bg-secondary border border-theme text-primary rounded-lg text-xs font-mono focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-mono font-bold uppercase text-primary tracking-wider">Description</label>
+                          <textarea
+                            value={proj.description}
+                            onChange={(e) => handleProjectChange(idx, 'description', e.target.value)}
+                            placeholder="Briefly describe what you built and your impact..."
+                            className="w-full px-3 py-2 bg-secondary border border-theme text-primary rounded-lg text-xs font-mono focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50 h-20 resize-none"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-mono font-bold uppercase text-primary tracking-wider flex items-center gap-1.5"><Globe className="w-3 h-3 text-blue-500"/> Live URL</label>
+                            <input
+                              type="url"
+                              value={proj.link}
+                              onChange={(e) => handleProjectChange(idx, 'link', e.target.value)}
+                              placeholder="https://..."
+                              className="w-full px-3 py-2 bg-secondary border border-theme text-primary rounded-lg text-xs font-mono focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-mono font-bold uppercase text-primary tracking-wider flex items-center gap-1.5"><Code2 className="w-3 h-3 text-primary"/> GitHub URL</label>
+                            <input
+                              type="url"
+                              value={proj.github}
+                              onChange={(e) => handleProjectChange(idx, 'github', e.target.value)}
+                              placeholder="https://github.com/..."
+                              className="w-full px-3 py-2 bg-secondary border border-theme text-primary rounded-lg text-xs font-mono focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-mono font-bold uppercase text-primary tracking-wider">Technologies (comma-separated)</label>
+                          <input
+                            type="text"
+                            value={Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies}
+                            onChange={(e) => handleProjectChange(idx, 'technologies', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                            placeholder="e.g. React, Node.js, MongoDB"
+                            className="w-full px-3 py-2 bg-secondary border border-theme text-primary rounded-lg text-xs font-mono focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50"
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Section 6: Professional & Portfolio Links */}
               <div className="bg-card-bg border border-theme rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 pb-3 border-b border-theme text-primary font-bold text-sm">
                   <LinkIcon className="w-4 h-4 text-purple-600" />
-                  <span>5. Professional Links * (At least one required)</span>
+                  <span>6. Professional Links * (At least one required)</span>
                 </div>
 
                 <div className="space-y-4">
@@ -851,6 +1004,17 @@ export default function StudentProfilePage() {
                     )}
                     <span className={isSkillsValid ? 'text-primary font-semibold' : 'text-secondary'}>
                       Tech Skills ({skills.length} added)
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {isProjectsValid ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-secondary flex-shrink-0" />
+                    )}
+                    <span className={isProjectsValid ? 'text-primary font-semibold' : 'text-secondary'}>
+                      Projects ({projects.length} added)
                     </span>
                   </div>
 

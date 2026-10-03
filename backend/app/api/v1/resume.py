@@ -114,6 +114,7 @@ async def upload_and_analyze_resume(
         "improvements": analysis["improvements"],
         "missing_keywords": analysis["missing_keywords"],
         "word_count": analysis["word_count"],
+        "extracted_data": {"projects": analysis.get("projects", [])},
         "is_active": True,
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
@@ -129,10 +130,23 @@ async def upload_and_analyze_resume(
     current_skills = existing_profile.get("skills", [])
     merged_skills = list(set(current_skills + analysis["detected_skills"]))
 
+    # Merge projects
+    current_projects = existing_profile.get("projects", [])
+    extracted_projects = analysis.get("projects", [])
+    merged_projects = current_projects.copy()
+
+    # Simple de-duplication by title
+    existing_titles = {p.get("title", "").lower() for p in current_projects}
+    for p in extracted_projects:
+        if p.get("title", "").lower() not in existing_titles:
+            merged_projects.append(p)
+            existing_titles.add(p.get("title", "").lower())
+
     # Update profile fields
     profile_updates = {
         "user_id": user_id_str,
         "skills": merged_skills,
+        "projects": merged_projects,
         "preferred_roles": analysis["recommended_roles"],
         "resume_id": resume_id_str,
         "interview_readiness_score": analysis["ats_score"],  # Initial baseline
