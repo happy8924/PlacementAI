@@ -28,6 +28,9 @@ import StudentSettingsPage from './pages/student/StudentSettingsPage';
 
 // Protected Pages - Other Modules
 import RecruiterDashboardPage from './pages/recruiter/RecruiterDashboardPage';
+import RecruiterJobsPage from './pages/recruiter/RecruiterJobsPage';
+import RecruiterApplicantsPage from './pages/recruiter/RecruiterApplicantsPage';
+import RecruiterProfilePage from './pages/recruiter/RecruiterProfilePage';
 import TpoDashboardPage from './pages/tpo/TpoDashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import UsersListPage from './pages/admin/UsersListPage';
@@ -141,6 +144,30 @@ function App() {
             element={
               <RouteGuard allowedRoles={['recruiter']}>
                 <RecruiterDashboardPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/recruiter/jobs"
+            element={
+              <RouteGuard allowedRoles={['recruiter']}>
+                <RecruiterJobsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/recruiter/applicants"
+            element={
+              <RouteGuard allowedRoles={['recruiter']}>
+                <RecruiterApplicantsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/recruiter/profile"
+            element={
+              <RouteGuard allowedRoles={['recruiter']}>
+                <RecruiterProfilePage />
               </RouteGuard>
             }
           />
