@@ -16,16 +16,15 @@ def seed_interviews():
         print("ERROR: Failed to connect to MongoDB.")
         return
 
-    # 1. Find a student user to attach the interview to
-    student = db.users.find_one({"role": "student"})
-    if not student:
-        print("ERROR: No student found in the database. Please register a student first.")
+    # 1. Find all student users to attach interviews to
+    students = list(db.users.find({"role": "student"}))
+    if not students:
+        print("ERROR: No student users found in the database. Please register a student first.")
         return
         
-    student_id = student["_id"]
-    print(f"Found Student: {student.get('email')} (ID: {student_id})")
+    print(f"Found {len(students)} student(s) in database.")
 
-    # 2. Create a Dummy Company
+    # 2. Create or find Dummy Company
     company_name = "TechNova Solutions"
     company = db.companies.find_one({"name": company_name})
     if not company:
@@ -43,7 +42,7 @@ def seed_interviews():
         company_id = company["_id"]
         print("Company already exists:", company_name)
 
-    # 3. Create a Dummy Job
+    # 3. Create or find Dummy Job
     job_title = "SDE-1 (Frontend)"
     job = db.jobs.find_one({"company_id": company_id, "title": job_title})
     if not job:
@@ -62,48 +61,62 @@ def seed_interviews():
         job_id = job["_id"]
         print("Job already exists:", job_title)
 
-    # 4. Create an Application for the student
-    app = db.applications.find_one({"job_id": job_id, "student_id": student_id})
-    if not app:
-        app_res = db.applications.insert_one({
-            "job_id": job_id,
-            "student_id": student_id,
-            "status": "shortlisted",
-            "applied_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc)
-        })
-        app_id = app_res.inserted_id
-        print("Created Application for Student")
-    else:
-        app_id = app["_id"]
-        print("Application already exists for Student")
+    # Clean up incomplete/invalid placement_rounds missing round_number if any
+    db.placement_rounds.delete_many({"round_number": None})
 
-    # 5. Create Placement Rounds (The actual Scheduled Interviews)
-    existing_round = db.placement_rounds.find_one({"application_id": app_id, "round_type": "Technical"})
-    if not existing_round:
-        db.placement_rounds.insert_many([
-            {
+    for student in students:
+        student_id = student["_id"]
+        student_email = student.get("email", "Unknown")
+        print(f"\nProcessing Student: {student_email} (ID: {student_id})")
+
+        # 4. Create an Application for the student (checking string & ObjectId formats)
+        app = db.applications.find_one({
+            "job_id": job_id,
+            "$or": [{"student_id": str(student_id)}, {"student_id": student_id}]
+        })
+        
+        if not app:
+            app_res = db.applications.insert_one({
+                "job_id": job_id,
+                "student_id": str(student_id),
+                "status": "shortlisted",
+                "applied_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc)
+            })
+            app_id = app_res.inserted_id
+            print(f"  -> Created Application for {student_email}")
+        else:
+            app_id = app["_id"]
+            print(f"  -> Application already exists for {student_email}")
+
+        # 5. Create / Update Placement Rounds (Round 1: Technical, Round 2: HR)
+        round1 = db.placement_rounds.find_one({"application_id": app_id, "round_number": 1})
+        if not round1:
+            db.placement_rounds.insert_one({
                 "application_id": app_id,
+                "round_number": 1,
                 "round_type": "Technical",
                 "notes": "DSA and React Assessment",
                 "result": "scheduled",
                 "scheduled_at": datetime.now(timezone.utc) + timedelta(days=2, hours=4),
                 "meeting_url": "https://meet.google.com/abc-defg-hij"
-            },
-            {
+            })
+            print("  -> Scheduled Round 1 (Technical Interview)")
+
+        round2 = db.placement_rounds.find_one({"application_id": app_id, "round_number": 2})
+        if not round2:
+            db.placement_rounds.insert_one({
                 "application_id": app_id,
+                "round_number": 2,
                 "round_type": "HR",
                 "notes": "Culture Fit & Salary Discussion",
                 "result": "scheduled",
                 "scheduled_at": datetime.now(timezone.utc) + timedelta(days=5, hours=2),
                 "meeting_url": "https://zoom.us/j/123456789"
-            }
-        ])
-        print("Created 2 Scheduled Interviews (Placement Rounds)")
-    else:
-        print("Scheduled Interviews already exist")
+            })
+            print("  -> Scheduled Round 2 (HR Interview)")
 
-    print("\nDummy data successfully seeded!")
+    print("\nDummy interview data successfully seeded for all students!")
     Database.close_db()
 
 if __name__ == "__main__":
