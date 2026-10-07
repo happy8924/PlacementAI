@@ -34,11 +34,12 @@ class UserRegister(BaseModel):
         return v
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    app_id: str
     password: str
 
 class UserResponse(BaseModel):
     id: str
+    app_id: str
     name: str
     email: EmailStr
     role: str

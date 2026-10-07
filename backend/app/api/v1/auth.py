@@ -25,7 +25,7 @@ from app.schemas.auth import (
     VerifyOtpRequest,
     OtpVerifiedResponse
 )
-from app.services.email import send_reset_password_email, send_otp_email
+from app.services.email import send_reset_password_email, send_otp_email, send_welcome_email
 
 router = APIRouter()
 
@@ -141,6 +141,7 @@ def verify_otp(request: VerifyOtpRequest, db: MongoDatabase = Depends(get_db)):
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 def register(
     user_in: UserRegister,
+    background_tasks: BackgroundTasks,
     db: MongoDatabase = Depends(get_db),
     authorization: Optional[str] = Header(None)
 ):
@@ -186,9 +187,28 @@ def register(
             detail="An account with this email address already exists."
         )
 
-    # ── Step 3: Create user ──
+    # ── Step 3: Generate Custom Application ID (app_id) ──
+    prefix_map = {
+        "student": "PLS",
+        "recruiter": "REC",
+        "tpo": "TPO",
+        "admin": "ADM"
+    }
+    role_prefix = prefix_map.get(user_in.role.lower(), "USR")
+    
+    # Count how many users exist in this role to generate the ID
+    count = db.users.count_documents({"role": user_in.role}) + 1
+    app_id = f"{role_prefix}{count:04d}"
+    
+    # Ensure app_id is unique just in case
+    while db.users.find_one({"app_id": app_id}):
+        count += 1
+        app_id = f"{role_prefix}{count:04d}"
+
+    # ── Step 4: Create user ──
     hashed_pwd = hash_password(user_in.password)
     user_doc = {
+        "app_id": app_id,
         "name": user_in.name,
         "email": user_in.email.lower(),
         "password_hash": hashed_pwd,
@@ -209,9 +229,12 @@ def register(
     # Clean up the used OTP record
     db.otp_codes.delete_one({"email": user_in.email.lower()})
 
+    # Queue welcome email with the generated ID
+    background_tasks.add_task(send_welcome_email, user_doc["email"], user_doc["name"], user_doc["app_id"])
+
     return RegisterResponse(
         success=True,
-        message="User registered successfully",
+        message=f"User registered successfully. Your ID is {app_id}.",
         user_id=user_id_str
     )
 
@@ -219,11 +242,19 @@ def register(
 
 @router.post("/login", response_model=LoginResponse)
 def login(credentials: UserLogin, db: MongoDatabase = Depends(get_db)):
-    user = db.users.find_one({"email": credentials.email.lower()})
+    # Let users login with either app_id or email, but prefer app_id.
+    # The frontend will send the input in the "app_id" field, which could be an email or an app_id.
+    query = credentials.app_id.strip()
+    if "@" in query:
+        user = db.users.find_one({"email": query.lower()})
+    else:
+        # Case insensitive match for app_id
+        user = db.users.find_one({"app_id": {"$regex": f"^{query}$", "$options": "i"}})
+        
     if not user or not verify_password(credentials.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password."
+            detail="Incorrect ID or password."
         )
 
     # Generate JWT
@@ -236,6 +267,7 @@ def login(credentials: UserLogin, db: MongoDatabase = Depends(get_db)):
 
     user_response = UserResponse(
         id=user_id_str,
+        app_id=user.get("app_id", ""),
         name=user["name"],
         email=user["email"],
         role=user["role"]

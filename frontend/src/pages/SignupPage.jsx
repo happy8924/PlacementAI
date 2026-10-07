@@ -229,8 +229,6 @@ export default function SignupPage() {
                 >
                   <option value="student">Student / Job Seeker</option>
                   <option value="recruiter">Recruiter / Hiring Partner</option>
-                  <option value="tpo">Placement Officer (TPO)</option>
-                  <option value="admin">System Admin</option>
                 </select>
               </div>
 
@@ -425,14 +423,20 @@ export default function SignupPage() {
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-secondary">
                         <BookOpen className="w-3.5 h-3.5" />
                       </div>
-                      <input
-                        type="text"
+                      <select
                         value={branch}
                         onChange={(e) => setBranch(e.target.value)}
-                        placeholder="e.g. Computer Science"
-                        className="w-full pl-9 pr-2 py-2.5 border border-theme bg-primary text-primary rounded-lg focus:outline-none focus:border-blue-500 font-mono text-[11px] focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        className="w-full pl-9 pr-2 py-2.5 border border-theme bg-primary text-primary rounded-lg focus:outline-none focus:border-blue-500 font-mono text-[11px] focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none"
                         required={role === 'student'}
-                      />
+                      >
+                        <option value="" disabled>Select Branch</option>
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Information Technology">Information Technology</option>
+                        <option value="AI / Data Science">AI / Data Science</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Mechanical">Mechanical</option>
+                        <option value="Civil">Civil</option>
+                      </select>
                     </div>
                   </div>
 
