@@ -253,6 +253,17 @@ def analyze_resume_content(resume_text: str, student_name: str) -> Dict[str, Any
             "role": recommended_roles[0] if recommended_roles else ""
         })
 
+    # If no github links but 'project' section exists, add a placeholder
+    if not projects and sections["experience_projects"]:
+        projects.append({
+            "title": "Extracted Technical Project",
+            "description": "Please update this project with details from your resume.",
+            "technologies": detected_skills[:4],
+            "link": "",
+            "github": "",
+            "role": recommended_roles[0] if recommended_roles else ""
+        })
+
     return {
         "ats_score": round(total_ats_score, 1),
         "verified": True,

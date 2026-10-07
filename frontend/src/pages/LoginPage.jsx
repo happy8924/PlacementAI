@@ -9,7 +9,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [email, setEmail] = useState('');
+  const [appId, setAppId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -22,14 +22,14 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     
-    if (!email || !password) {
+    if (!appId || !password) {
       setError('Please fill in all fields.');
       return;
     }
 
     setLoading(true);
     try {
-      const data = await login(email, password);
+      const data = await login(appId, password);
       if (data.success) {
         // Successful login - determine redirect target
         if (fromPath) {
@@ -45,7 +45,7 @@ export default function LoginPage() {
               if (isComp) {
                 navigate('/student/dashboard', { replace: true });
               } else {
-                navigate('/student/profile', { replace: true });
+                navigate('/student/resume', { replace: true });
               }
             } catch {
               navigate('/student/dashboard', { replace: true });
@@ -59,7 +59,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('Login error details:', err);
-      const detailMsg = err.response?.data?.detail || 'Invalid email or password. Please try again.';
+      const detailMsg = err.response?.data?.detail || 'Invalid ID or password. Please try again.';
       setError(detailMsg);
     } finally {
       setLoading(false);
@@ -109,18 +109,18 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* Email Input */}
+            {/* ID/Email Input */}
             <div className="space-y-1">
-              <label className="block text-primary uppercase font-bold text-[10px] font-mono tracking-wider">Email Address</label>
+              <label className="block text-primary uppercase font-bold text-[10px] font-mono tracking-wider">PlacementAI ID or Email</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-secondary">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@university.edu"
+                  type="text"
+                  value={appId}
+                  onChange={(e) => setAppId(e.target.value)}
+                  placeholder="e.g. PLS0001 or email"
                   className="w-full pl-10 pr-3 py-3 border border-theme bg-secondary text-primary rounded-lg focus:outline-none focus:border-blue-500 font-mono text-xs focus:ring-2 focus:ring-blue-500/20 transition-all"
                   required
                 />
