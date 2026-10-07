@@ -203,8 +203,6 @@ The PlacementAI Team
         print(f"To: {email}")
         print(f"OTP Code: {otp}")
         print("!" * 60 + "\n")
-<<<<<<< Updated upstream
-=======
 
 
 def send_job_opportunity_email(student_email: str, student_name: str, job_data: dict, company_name: str) -> tuple[bool, str]:
@@ -417,4 +415,3 @@ The PlacementAI Team
     except Exception as e:
         logger.error(f"Failed to send welcome email to {email}: {e}")
 
->>>>>>> Stashed changes
