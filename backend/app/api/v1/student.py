@@ -39,6 +39,13 @@ def get_current_user(authorization: Optional[str] = Header(None), db: MongoDatab
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+        
+    if user.get("role") != "student":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Student role required."
+        )
+        
     return user
 
 # ── Pydantic Request/Response Models ──

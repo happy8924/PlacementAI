@@ -342,3 +342,76 @@ PlacementAI Career Intelligence Platform
         logger.error(f"Failed to send Job Opportunity email to {student_email}: {e}")
         return False, str(e)
 
+
+
+def send_welcome_email(email: str, name: str, app_id: str):
+    """
+    Send the unique PlacementAI ID to the user upon successful registration.
+    """
+    subject = "Welcome to PlacementAI — Your Login ID"
+    smtp_host, smtp_port, smtp_username, smtp_password, from_address = _get_smtp_credentials()
+
+    text_body = f"""Hello {name},
+
+Welcome to PlacementAI! Your account has been successfully created.
+
+Your unique Login ID is: {app_id}
+
+Please use this ID along with your password to log in to the platform.
+
+Best regards,
+The PlacementAI Team
+"""
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0b132b; margin: 0; padding: 20px; }}
+        .container {{ max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }}
+        .brand {{ font-size: 20px; font-weight: 800; color: #2563eb; margin-bottom: 24px; font-family: monospace; }}
+        .id-box {{ background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 24px; font-weight: 800; letter-spacing: 2px; color: #1e3a8a; padding: 16px; text-align: center; margin: 20px 0; font-family: monospace; }}
+        .footer {{ font-size: 11px; color: #64748b; margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 16px; font-family: monospace; }}
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="brand">Placement<span style="color: #4f46e5;">AI</span></div>
+        <h2 style="font-size: 18px; margin-top: 0;">Welcome to PlacementAI</h2>
+        <p>Hello <strong>{name}</strong>,</p>
+        <p>Your account has been successfully created. Please use the following unique Login ID to access the platform:</p>
+        <div class="id-box">{app_id}</div>
+        <p style="font-size: 14px; color: #475569;">Keep this ID safe, as you will need it every time you log in.</p>
+        <div class="footer">
+          © PlacementAI Intelligence Platform.
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    if not all([smtp_host, smtp_username, smtp_password]):
+        print(f"\n[SIMULATION] Welcome Email sent to {email}. ID: {app_id}\n")
+        return
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg['From'] = from_address
+        msg['To'] = email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(text_body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port)
+            server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.sendmail(from_address, email, msg.as_string())
+        server.quit()
+        print(f"✓ Welcome email sent to {email} with ID {app_id}")
+    except Exception as e:
+        logger.error(f"Failed to send welcome email to {email}: {e}")
+

@@ -68,7 +68,8 @@ const INTERNSHIP_OPTIONS = [
 const POPULAR_SKILLS = [
   'Python', 'React.js', 'Node.js', 'Java', 'C++', 'JavaScript',
   'Data Structures & Algorithms', 'SQL / MySQL', 'MongoDB',
-  'Git / GitHub', 'Tailwind CSS', 'Machine Learning', 'Docker', 'FastAPI'
+  'Git / GitHub', 'Tailwind CSS', 'Machine Learning', 'Docker', 'FastAPI',
+  'HTML', 'CSS', 'PHP', 'Bootstrap', 'PostgreSQL', 'Go'
 ];
 
 const TARGET_ROLE_OPTIONS = [
@@ -79,7 +80,11 @@ const TARGET_ROLE_OPTIONS = [
   'Data Analyst / Data Engineer',
   'DevOps / Cloud Engineer',
   'Software Engineer (SDE)',
-  'QA / Testing Engineer'
+  'QA / Testing Engineer',
+  'Android Developer',
+  'iOS Developer',
+  'UI / UX Designer',
+  'Cybersecurity Analyst'
 ];
 
 export default function StudentProfilePage() {
@@ -723,7 +728,11 @@ export default function StudentProfilePage() {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {POPULAR_SKILLS.map((popSkill) => {
-                        const isAdded = skills.some((s) => s.toLowerCase() === popSkill.toLowerCase());
+                        const popSkillParts = popSkill.split('/').map(p => p.trim().toLowerCase());
+                        const isAdded = skills.some((s) => 
+                          s.toLowerCase() === popSkill.toLowerCase() || 
+                          popSkillParts.includes(s.toLowerCase())
+                        );
                         return (
                           <button
                             type="button"
