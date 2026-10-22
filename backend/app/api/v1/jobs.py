@@ -7,6 +7,7 @@ from bson import ObjectId
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
+from app.services.eligibility import evaluate_student_job_eligibility
 from pydantic import BaseModel, Field
 
 class JobCreate(BaseModel):
@@ -50,6 +51,19 @@ def get_current_user(authorization: Optional[str] = Header(None), db: MongoDatab
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+
+    if not user.get("is_approved", True) or user.get("approval_status") == "pending":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account pending TPO approval."
+        )
+
+    if user.get("is_active") is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account deactivated."
+        )
+
     return user
 
 def seed_default_jobs_if_empty(db: MongoDatabase):
@@ -94,15 +108,58 @@ def seed_default_jobs_if_empty(db: MongoDatabase):
 
 @router.get("", response_model=List[dict])
 @router.get("/", response_model=List[dict])
-def get_all_jobs(db: MongoDatabase = Depends(get_db)):
-    """List all open job postings (auto-seeds defaults if empty)."""
+def get_all_jobs(
+    authorization: Optional[str] = Header(None),
+    db: MongoDatabase = Depends(get_db)
+):
+    """
+    List open job postings.
+    If requested by an authenticated student, filters or annotates jobs strictly
+    based on whether the student meets CGPA, Branch, and Technical Skill criteria.
+    """
     seed_default_jobs_if_empty(db)
+
+    # Check if request has student auth token
+    current_student = None
+    student_profile = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+        payload = decode_access_token(token)
+        if payload and payload.get("sub"):
+            user_id = payload["sub"]
+            try:
+                user = db.users.find_one({"_id": ObjectId(user_id)})
+            except Exception:
+                user = db.users.find_one({"_id": user_id})
+
+            if user and user.get("role") == "student":
+                current_student = user
+                student_profile = db.student_profiles.find_one({"user_id": str(user["_id"])}) or {}
+
     cursor = db.jobs.find({"status": "open"}).sort("created_at", -1)
     jobs = []
+
     for doc in cursor:
         doc["id"] = str(doc["_id"])
         del doc["_id"]
+
+        if current_student:
+            is_eligible, reasons, metrics = evaluate_student_job_eligibility(
+                current_student,
+                student_profile,
+                doc
+            )
+            # Only include jobs where student is strictly eligible
+            if not is_eligible:
+                continue
+
+            doc["is_eligible"] = True
+            doc["eligibility_metrics"] = metrics
+        else:
+            doc["is_eligible"] = True
+
         jobs.append(doc)
+
     return jobs
 
 @router.get("/{job_id}", response_model=dict)
