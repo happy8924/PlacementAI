@@ -16,10 +16,10 @@ class UserRegister(BaseModel):
     @field_validator('role')
     @classmethod
     def validate_role(cls, v: str) -> str:
-        allowed = {'student', 'recruiter', 'tpo', 'admin'}
+        allowed = {'student', 'recruiter'}
         v_lower = v.lower()
         if v_lower not in allowed:
-            raise ValueError(f"Role must be one of: {', '.join(allowed)}")
+            raise ValueError(f"Public registration only permitted for: {', '.join(allowed)}")
         return v_lower
 
     @field_validator('student_details')
@@ -43,6 +43,9 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     role: str
+    is_approved: Optional[bool] = True
+    approval_status: Optional[str] = "approved"
+    rejection_reason: Optional[str] = None
 
 class LoginResponse(BaseModel):
     success: bool
