@@ -11,11 +11,11 @@ export default function Navbar() {
         
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center rounded-xl shadow-md transition-transform group-hover:scale-105">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-          </div>
+          <img
+            src="/logo-icon.png"
+            alt="PlacementAI"
+            className="w-10 h-10 object-contain rounded-xl shadow-md transition-transform group-hover:scale-105"
+          />
           <div className="flex flex-col">
             <span className="font-extrabold text-xl tracking-tight text-primary font-sans">PlacementAI</span>
             <span className="text-[9px] uppercase tracking-widest font-mono text-teal-500 font-semibold -mt-1">Intelligence Engine</span>

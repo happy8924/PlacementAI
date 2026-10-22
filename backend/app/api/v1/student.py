@@ -7,6 +7,7 @@ from pymongo.database import Database as MongoDatabase
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
+from app.services.eligibility import evaluate_student_job_eligibility
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,18 @@ def get_current_user(authorization: Optional[str] = Header(None), db: MongoDatab
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Student role required."
+        )
+        
+    if not user.get("is_approved", True) or user.get("approval_status") == "pending":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student account pending TPO approval."
+        )
+
+    if user.get("is_active") is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student account deactivated."
         )
         
     return user
@@ -540,6 +553,16 @@ def apply_to_job(
         job = None
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+
+    # Strict Eligibility Check: Student must meet CGPA, branch, and skill criteria
+    student_profile = db.student_profiles.find_one({"user_id": user_id_str}) or {}
+    is_eligible, reasons, metrics = evaluate_student_job_eligibility(current_user, student_profile, job)
+    if not is_eligible:
+        reason_msg = "; ".join(reasons) if reasons else "Criteria not satisfied"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Ineligible to apply: {reason_msg}"
+        )
     
     # Prevent duplicate application
     existing = db.applications.find_one({"job_id": ObjectId(job_id), "student_id": ObjectId(user_id_str)})
@@ -555,6 +578,24 @@ def apply_to_job(
         "applied_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
     })
+
+    # Also sync with job_applications for unified institutional tracking
+    try:
+        db.job_applications.update_one(
+            {"job_id": str(job["_id"]), "student_id": user_id_str},
+            {"$set": {
+                "job_id": str(job["_id"]),
+                "student_id": user_id_str,
+                "job_title": job.get("title", ""),
+                "company_name": job.get("company_name", ""),
+                "status": "applied",
+                "applied_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc)
+            }},
+            upsert=True
+        )
+    except Exception:
+        pass
     
     # Log activity
     db.activity_logs.insert_one({

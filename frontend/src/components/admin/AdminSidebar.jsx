@@ -62,9 +62,11 @@ export default function AdminSidebar({ isOpen, onClose }) {
       {/* Branding Header */}
       <div className="p-6 border-b border-theme flex items-center justify-between">
         <NavLink to="/admin/dashboard" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-red-500/20 group-hover:scale-105 transition-transform">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/logo-icon.png"
+            alt="PlacementAI"
+            className="w-10 h-10 object-contain rounded-xl shadow-md shadow-red-500/20 group-hover:scale-105 transition-transform"
+          />
           <div>
             <span className="text-lg font-extrabold text-primary tracking-tight block font-mono">
               Placement<span className="text-red-500">AI</span>

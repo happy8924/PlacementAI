@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AwaitingApprovalPage from './pages/AwaitingApprovalPage';
 
 // Protected Pages - Student Module
 import StudentDashboardPage from './pages/student/StudentDashboardPage';
@@ -32,6 +33,11 @@ import RecruiterJobsPage from './pages/recruiter/RecruiterJobsPage';
 import RecruiterApplicantsPage from './pages/recruiter/RecruiterApplicantsPage';
 import RecruiterProfilePage from './pages/recruiter/RecruiterProfilePage';
 import TpoDashboardPage from './pages/tpo/TpoDashboardPage';
+import TpoApprovalsPage from './pages/tpo/TpoApprovalsPage';
+import TpoStudentsPage from './pages/tpo/TpoStudentsPage';
+import TpoRecruitmentPage from './pages/tpo/TpoRecruitmentPage';
+import TpoAnalyticsPage from './pages/tpo/TpoAnalyticsPage';
+import TpoAuditPage from './pages/tpo/TpoAuditPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import UsersListPage from './pages/admin/UsersListPage';
 import UserDetailPage from './pages/admin/UserDetailPage';
@@ -43,11 +49,13 @@ import AuditLogsPage from './pages/admin/AuditLogsPage';
 import ReportsPage from './pages/admin/ReportsPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
+import PageTitleManager from './components/PageTitleManager';
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <PageTitleManager />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
@@ -55,6 +63,7 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/awaiting-approval" element={<AwaitingApprovalPage />} />
 
           {/* Protected Routes - Student Module */}
           <Route
@@ -176,8 +185,48 @@ function App() {
           <Route
             path="/tpo/dashboard"
             element={
-              <RouteGuard allowedRoles={['tpo']}>
+              <RouteGuard allowedRoles={['tpo', 'admin']}>
                 <TpoDashboardPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/tpo/approvals"
+            element={
+              <RouteGuard allowedRoles={['tpo', 'admin']}>
+                <TpoApprovalsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/tpo/students"
+            element={
+              <RouteGuard allowedRoles={['tpo', 'admin']}>
+                <TpoStudentsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/tpo/recruitment"
+            element={
+              <RouteGuard allowedRoles={['tpo', 'admin']}>
+                <TpoRecruitmentPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/tpo/analytics"
+            element={
+              <RouteGuard allowedRoles={['tpo', 'admin']}>
+                <TpoAnalyticsPage />
+              </RouteGuard>
+            }
+          />
+          <Route
+            path="/tpo/audit"
+            element={
+              <RouteGuard allowedRoles={['tpo', 'admin']}>
+                <TpoAuditPage />
               </RouteGuard>
             }
           />

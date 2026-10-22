@@ -207,6 +207,8 @@ def register(
 
     # ── Step 4: Create user ──
     hashed_pwd = hash_password(user_in.password)
+    # Student and Recruiter require TPO approval before accessing protected workflows
+    is_auto_approved = user_in.role not in ["student", "recruiter"]
     user_doc = {
         "app_id": app_id,
         "name": user_in.name,
@@ -214,6 +216,10 @@ def register(
         "password_hash": hashed_pwd,
         "role": user_in.role,
         "email_verified": True,
+        "is_active": is_auto_approved,
+        "is_approved": is_auto_approved,
+        "approval_status": "approved" if is_auto_approved else "pending",
+        "rejection_reason": None,
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
     }
@@ -226,15 +232,37 @@ def register(
     result = db.users.insert_one(user_doc)
     user_id_str = str(result.inserted_id)
 
+    # Log registration activity for TPO audit
+    try:
+        db.activity_logs.insert_one({
+            "user_id": user_id_str,
+            "role": user_in.role,
+            "action": "USER_REGISTERED",
+            "details": {
+                "name": user_in.name,
+                "email": user_in.email.lower(),
+                "app_id": app_id,
+                "role": user_in.role,
+                "status": "pending_approval" if not is_auto_approved else "approved"
+            },
+            "timestamp": datetime.now(timezone.utc)
+        })
+    except Exception as e:
+        pass
+
     # Clean up the used OTP record
     db.otp_codes.delete_one({"email": user_in.email.lower()})
 
     # Queue welcome email with the generated ID
     background_tasks.add_task(send_welcome_email, user_doc["email"], user_doc["name"], user_doc["app_id"])
 
+    reg_message = f"User registered successfully. Your ID is {app_id}."
+    if not is_auto_approved:
+        reg_message += " Your registration is submitted for TPO approval."
+
     return RegisterResponse(
         success=True,
-        message=f"User registered successfully. Your ID is {app_id}.",
+        message=reg_message,
         user_id=user_id_str
     )
 
@@ -257,6 +285,30 @@ def login(credentials: UserLogin, db: MongoDatabase = Depends(get_db)):
             detail="Incorrect ID or password."
         )
 
+    # Check approval status for students and recruiters
+    role = user.get("role")
+    if role in ["student", "recruiter"]:
+        # If is_approved flag is False or approval_status is pending/rejected
+        approval_status = user.get("approval_status", "approved" if user.get("is_approved", True) else "pending")
+        if approval_status == "pending" or not user.get("is_approved", True):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account is pending verification and approval by the Training & Placement Officer (TPO). Please check back once approved."
+            )
+        elif approval_status == "rejected":
+            reason = user.get("rejection_reason") or "Application criteria not met."
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Your registration was rejected by the TPO. Reason: {reason}"
+            )
+
+    # Check if account is active
+    if user.get("is_active") is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated. Please contact the administrator or TPO."
+        )
+
     # Generate JWT
     user_id_str = str(user["_id"])
     token_claims = {
@@ -270,7 +322,10 @@ def login(credentials: UserLogin, db: MongoDatabase = Depends(get_db)):
         app_id=user.get("app_id", ""),
         name=user["name"],
         email=user["email"],
-        role=user["role"]
+        role=user["role"],
+        is_approved=user.get("is_approved", True),
+        approval_status=user.get("approval_status", "approved"),
+        rejection_reason=user.get("rejection_reason")
     )
 
     return LoginResponse(

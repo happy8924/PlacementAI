@@ -10,6 +10,7 @@ from bson import ObjectId
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.services.email import send_job_opportunity_email
+from app.services.eligibility import evaluate_student_job_eligibility
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,19 @@ def get_current_recruiter(authorization: Optional[str] = Header(None), db: Mongo
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Recruiter role required."
         )
+
+    if not user.get("is_approved", True) or user.get("approval_status") == "pending":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recruiter account pending TPO approval."
+        )
+
+    if user.get("is_active") is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recruiter account deactivated."
+        )
+
     return user
 
 def log_recruiter_activity(db: MongoDatabase, user_id: str, action: str, details: dict):
@@ -552,67 +566,43 @@ def trigger_job_broadcast_internal(db: MongoDatabase, job_id_str: str, job_dict:
 
         st_prof = db.student_profiles.find_one({"user_id": st_id_str}) or {}
 
-        st_cgpa = float(st_prof.get("cgpa", 0.0) or 0.0)
-        cgpa_score = 20 if (min_cgpa == 0 or st_cgpa >= min_cgpa) else max(0, (st_cgpa / min_cgpa) * 20)
-
-        st_branch = (st_prof.get("branch") or "").strip().lower()
-        branch_score = 20 if (not eligible_branches or any(b in st_branch or st_branch in b for b in eligible_branches)) else 0
-
-        pref_roles = [r.strip().lower() for r in st_prof.get("preferred_roles", [])]
-        role_score = 20 if (not pref_roles or any(r in job_role or job_role in r for r in pref_roles)) else 10
-
-        st_skills = [s.strip().lower() for s in st_prof.get("skills", [])]
-        if not req_skills:
-            skill_score = 30
-            skill_pct = 100.0
-        else:
-            matched_skills = 0
-            for r_skill in req_skills:
-                pattern = r'\b' + re.escape(r_skill) + r'\b'
-                if any(re.search(pattern, sk) for sk in st_skills):
-                    matched_skills += 1
-            skill_pct = (matched_skills / len(req_skills)) * 100
-            skill_score = (matched_skills / len(req_skills)) * 30
-
-        if req_skills and skill_pct < 50.0:
+        # Strict eligibility evaluation: CGPA, Branch, Skills
+        is_eligible, reasons, metrics = evaluate_student_job_eligibility(st_user, st_prof, job_dict)
+        if not is_eligible:
             continue
 
-        location_score = 10
-        total_score = cgpa_score + branch_score + role_score + skill_score + location_score
-        
-        if total_score >= 60.0:
-            eligible_count += 1
+        eligible_count += 1
 
-            existing_mail = db.mail_logs.find_one({"job_id": job_id_str, "student_id": st_id_str, "status": "sent"})
-            if existing_mail:
-                continue
+        existing_mail = db.mail_logs.find_one({"job_id": job_id_str, "student_id": st_id_str, "status": "sent"})
+        if existing_mail:
+            continue
 
-            student_name = st_prof.get("full_name") or st_user.get("name") or "Candidate"
-            company_name = job_dict.get("company_name") or "Recruiter"
+        student_name = st_prof.get("full_name") or st_user.get("name") or "Candidate"
+        company_name = job_dict.get("company_name") or "Recruiter"
 
-            success, err_msg = send_job_opportunity_email(
-                student_email=st_email,
-                student_name=student_name,
-                job_data=job_dict,
-                company_name=company_name
-            )
+        success, err_msg = send_job_opportunity_email(
+            student_email=st_email,
+            student_name=student_name,
+            job_data=job_dict,
+            company_name=company_name
+        )
 
-            db.mail_logs.insert_one({
-                "job_id": job_id_str,
-                "student_id": st_id_str,
-                "student_name": student_name,
-                "student_email": st_email,
-                "company_name": company_name,
-                "job_title": job_dict.get("title"),
-                "sent_at": datetime.now(timezone.utc),
-                "status": "sent" if success else "failed",
-                "error_message": err_msg,
-                "match_score": total_score
-            })
+        db.mail_logs.insert_one({
+            "job_id": job_id_str,
+            "student_id": st_id_str,
+            "student_name": student_name,
+            "student_email": st_email,
+            "company_name": company_name,
+            "job_title": job_dict.get("title"),
+            "sent_at": datetime.now(timezone.utc),
+            "status": "sent" if success else "failed",
+            "error_message": err_msg,
+            "match_score": metrics.get("skill_pct", 100.0)
+        })
 
-            if success:
-                dispatched_count += 1
-            else:
+        if success:
+            dispatched_count += 1
+        else:
                 errors.append(err_msg)
 
     return {

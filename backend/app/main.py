@@ -12,6 +12,7 @@ from app.api.v1.resume import router as resume_router
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.roadmap import router as roadmap_router
 from app.api.v1.recruiter import router as recruiter_router
+from app.api.v1.tpo import router as tpo_router
 
 # Setup basic logging config
 logging.basicConfig(
@@ -53,6 +54,7 @@ app.include_router(recruiter_router, prefix="/api/v1/recruiter", tags=["Recruite
 app.include_router(resume_router, prefix="/api/v1/resume", tags=["Resume Intelligence"])
 app.include_router(jobs_router, prefix="/api/v1/jobs", tags=["Job Vacancies"])
 app.include_router(roadmap_router, prefix="/api/v1/roadmap", tags=["Career Roadmap Engine"])
+app.include_router(tpo_router, prefix="/api/v1/tpo", tags=["TPO Module"])
 
 @app.get("/")
 def read_root():
