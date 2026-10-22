@@ -9,7 +9,11 @@ export default function Footer({ onGetStarted }) {
           
           <div className="md:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm rounded-lg">P</div>
+              <img
+                src="/logo-icon.png"
+                alt="PlacementAI"
+                className="w-8 h-8 object-contain rounded-lg shadow-sm"
+              />
               <span className="font-bold text-lg text-primary">PlacementAI</span>
             </div>
             <p className="text-secondary text-xs max-w-sm leading-relaxed">
