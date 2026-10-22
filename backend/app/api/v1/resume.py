@@ -43,6 +43,19 @@ def get_current_user(authorization: Optional[str] = Header(None), db: MongoDatab
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+
+    if not user.get("is_approved", True) or user.get("approval_status") == "pending":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account pending TPO approval."
+        )
+
+    if user.get("is_active") is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account deactivated."
+        )
+
     return user
 
 # ── API Endpoints ──
