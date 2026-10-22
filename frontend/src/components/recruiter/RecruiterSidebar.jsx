@@ -41,9 +41,11 @@ export default function RecruiterSidebar({ isOpen, onClose }) {
       {/* Branding Header */}
       <div className="h-[76px] px-6 border-b border-theme flex items-center justify-between">
         <NavLink to="/recruiter/dashboard" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/logo-icon.png"
+            alt="PlacementAI"
+            className="w-10 h-10 object-contain rounded-xl shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform"
+          />
           <div>
             <span className="text-lg font-extrabold text-primary tracking-tight block">
               Placement<span className="text-indigo-600">AI</span>

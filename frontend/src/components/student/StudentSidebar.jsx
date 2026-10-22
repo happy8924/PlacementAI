@@ -66,9 +66,11 @@ export default function StudentSidebar({ isOpen, onClose }) {
           className={`flex items-center gap-3 group ${isCollapsed ? 'md:mx-auto mx-0' : ''}`}
           title="PlacementAI Dashboard"
         >
-          <div className="w-10 h-10 flex-shrink-0 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/logo-icon.png"
+            alt="PlacementAI"
+            className="w-10 h-10 flex-shrink-0 rounded-xl object-contain shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform"
+          />
           <div className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'md:hidden block' : 'block'}`}>
             <span className="text-lg font-extrabold text-primary tracking-tight block">
               Placement<span className="text-blue-600">AI</span>
