@@ -1,6 +1,6 @@
 # PlacementAI — Backend
 
-**FastAPI + Python 3.11 + MongoDB authentication service for the PlacementAI platform.**
+**FastAPI + Python 3.11 + MongoDB backend for the PlacementAI platform.**
 
 ---
 
@@ -26,68 +26,65 @@ backend/
 ├── app/
 │   ├── api/
 │   │   └── v1/
-│   │       └── auth.py           # Authentication route controllers
+│   │       ├── auth.py           # Auth routes (register, login, reset password)
+│   │       ├── student.py        # Student profile, job feed, applications
+│   │       ├── recruiter.py      # Recruiter drive posting, email broadcast
+│   │       ├── jobs.py           # Job listings with eligibility filtering
+│   │       ├── tpo.py            # TPO approvals, analytics, student/recruiter oversight
+│   │       ├── admin.py          # Admin user management
+│   │       ├── resume.py         # Resume upload/analysis
+│   │       └── roadmap.py        # AI learning roadmap
 │   ├── core/
 │   │   ├── config.py             # Environment config via pydantic-settings
 │   │   ├── database.py           # MongoDB singleton client + index init
 │   │   └── security.py           # bcrypt hashing + JWT sign/verify
 │   ├── schemas/
-│   │   └── auth.py               # Pydantic request/response schemas
+│   │   ├── auth.py               # Pydantic request/response schemas
+│   │   └── user.py               # User model schemas
 │   ├── services/
+│   │   ├── eligibility.py        # Strict eligibility evaluation engine
 │   │   └── email.py              # SMTP email dispatcher (console fallback)
 │   └── main.py                   # FastAPI app, CORS, router registration
+├── scripts/
+│   └── seed_tpo.py               # Seed script to create a TPO user
 ├── tests/
 │   └── test_auth.py              # Pytest unit tests (uses mongomock)
-├── requirements.txt              # Python dependencies
-├── pytest.ini                    # Pytest configuration
-├── .env.example                  # Environment variable template
-└── README.md                     # This file
+├── requirements.txt
+├── pytest.ini
+├── .env.example
+└── README.md
 ```
 
 ---
 
-## ⚙️ How the Authentication Flow Works (Backend)
+## ⚙️ Authentication Flow
 
 ```
 POST /api/v1/auth/register
-  │
-  ├─ Validate body via Pydantic (UserRegister schema)
-  ├─ Check duplicate email in MongoDB users collection
-  ├─ Hash password with bcrypt (never store plaintext)
-  └─ Insert user document → return {success, user_id}
+  ├─ Validate via Pydantic schema
+  ├─ Check duplicate email
+  ├─ Hash password (bcrypt)
+  └─ Insert user → return {success, user_id}
 
 POST /api/v1/auth/login
-  │
   ├─ Find user by email
-  ├─ Verify password with bcrypt.checkpw()
-  ├─ Create JWT: payload = {sub: user_id, role, exp}
-  └─ Return {success, access_token, token_type, user}
+  ├─ Verify password (bcrypt)
+  ├─ Sign JWT: {sub: user_id, role, exp}
+  └─ Return {access_token, token_type, user}
 
 POST /api/v1/auth/forgot-password
-  │
-  ├─ Accept email (NEVER reveal if account exists)
-  ├─ If user found:
-  │   ├─ Generate cryptographically secure token (secrets.token_urlsafe)
-  │   ├─ SHA-256 hash the token (only hash stored in DB)
-  │   ├─ Save to password_reset_tokens collection with 60min expiry
-  │   └─ Queue background email task with raw token in URL
-  └─ Always return generic success message
+  ├─ Generate secrets.token_urlsafe(32)
+  ├─ Store SHA-256 hash in DB (60 min TTL)
+  └─ Send reset link via email (console fallback)
 
 POST /api/v1/auth/reset-password
-  │
-  ├─ Hash the incoming token with SHA-256
-  ├─ Find matching token record (token_hash, used_at = None)
-  ├─ Check expiration (expires_at > now)
-  ├─ Hash new password with bcrypt
-  ├─ Update users collection with new password_hash
-  └─ Mark reset token as used (used_at = now) — one-time use enforced
-
-Protected Routes (future routers):
-  │
-  └─ Depends(get_current_user) → decode JWT → verify signature + expiry
+  ├─ Hash incoming token → lookup in DB
+  ├─ Verify expiry + one-time use
+  ├─ Update password hash (bcrypt)
+  └─ Mark token used_at = now
 ```
 
-### JWT Payload Structure
+### JWT Payload
 ```json
 {
   "sub": "<user_id>",
@@ -96,179 +93,119 @@ Protected Routes (future routers):
 }
 ```
 
-### Password Reset Token Security
-- Raw token is generated with `secrets.token_urlsafe(32)` (256-bit entropy)
-- Only the SHA-256 hash of the token is stored in MongoDB
-- Token is single-use (marked with `used_at` on success)
-- MongoDB TTL index auto-expires documents after 60 minutes
+---
+
+## 🎯 Eligibility Engine
+
+`app/services/eligibility.py` — Central service enforcing strict eligibility checks:
+
+- **CGPA** threshold matching
+- **Branch** whitelist matching
+- **Skills** percentage overlap check
+
+Used in:
+- `recruiter.py` — filters who receives broadcast emails on new drive
+- `jobs.py` — filters which jobs appear in student's job feed
+- `student.py` — prevents ineligible applications
+
+---
+
+## 🗺️ API Endpoints
+
+All endpoints prefixed with `/api/v1`.
+
+### Auth
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | None | Register new user |
+| `POST` | `/api/v1/auth/login` | None | Login + get JWT |
+| `POST` | `/api/v1/auth/forgot-password` | None | Request password reset |
+| `POST` | `/api/v1/auth/reset-password` | None | Set new password |
+
+### Student
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/student/jobs` | student | Eligibility-filtered job feed |
+| `POST` | `/api/v1/student/apply/{job_id}` | student | Apply to a drive |
+| `GET` | `/api/v1/student/applications` | student | View own applications |
+| `GET/PUT` | `/api/v1/student/profile` | student | View/update profile |
+
+### Recruiter
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/v1/recruiter/jobs` | recruiter | Post a new drive |
+| `GET` | `/api/v1/recruiter/jobs` | recruiter | List own drives |
+| `GET` | `/api/v1/recruiter/jobs/{id}/applicants` | recruiter | View applicants |
+
+### TPO
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/tpo/dashboard` | tpo | Stats overview |
+| `GET` | `/api/v1/tpo/approvals` | tpo | Pending drive approvals |
+| `POST` | `/api/v1/tpo/approvals/{id}` | tpo | Approve/reject drive |
+| `GET` | `/api/v1/tpo/students` | tpo | Full student directory |
+| `GET` | `/api/v1/tpo/analytics` | tpo | Placement analytics |
+| `GET` | `/api/v1/tpo/audit` | tpo | Audit activity timeline |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.11 or higher
-- MongoDB running locally (default port 27017) **or** a MongoDB Atlas URI
-- pip (Python package manager)
+- Python 3.11+
+- MongoDB running locally (port 27017) or Atlas URI
 
-### 1. Create a virtual environment
+### Setup
 
-```bash
+```powershell
 cd backend
 python -m venv .venv
-```
-
-### 2. Activate the virtual environment
-
-**Windows (PowerShell):**
-```powershell
 .\.venv\Scripts\Activate.ps1
-```
-
-**Windows (CMD):**
-```cmd
-.venv\Scripts\activate.bat
-```
-
-**macOS / Linux:**
-```bash
-source .venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
 pip install -r requirements.txt
-```
-
-### 4. Copy environment configuration
-
-```bash
 cp .env.example .env
 ```
 
-Edit `.env` and fill in your values:
-
+Edit `.env`:
 ```env
-# MongoDB
 MONGODB_URI=mongodb://localhost:27017
 MONGODB_DATABASE=placement_ai
 
-# JWT — generate a strong secret:
-# python -c "import secrets; print(secrets.token_hex(32))"
 JWT_SECRET_KEY=your_very_secure_secret_here
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
 
-# SMTP — leave empty to use console logging (development mode)
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
 SMTP_PASSWORD=
 SMTP_FROM_EMAIL=no-reply@placementai.com
 
-# Frontend URL (used in password reset email links)
 FRONTEND_URL=http://localhost:3000
 ```
 
-> **Note:** If SMTP variables are empty, password reset links are printed to the terminal console instead of being emailed. This is safe for development.
-
-### 5. Start the development server
+### Start Server
 
 ```bash
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-API will be available at: **http://127.0.0.1:8000**
+- API: **http://127.0.0.1:8000**
+- Swagger Docs: **http://127.0.0.1:8000/docs**
 
-Interactive Swagger docs: **http://127.0.0.1:8000/docs**
+### Seed TPO User
+
+```bash
+python scripts/seed_tpo.py
+```
 
 ---
 
 ## 🧪 Running Tests
 
-Tests use `mongomock` — no real MongoDB connection required.
-
 ```bash
 python -m pytest
 ```
 
-### Test Coverage
-
-| Test | Verifies |
-|---|---|
-| `test_user_signup_and_duplicate` | Registration success + duplicate email rejection |
-| `test_user_login` | Correct login, JWT in response, wrong password rejection |
-| `test_protected_route_guard` | JWT Bearer token auth on protected routes |
-| `test_forgot_and_reset_password_flow` | Full token lifecycle — issue, use, invalidate, old/new password check |
-
----
-
-## 🗺️ API Endpoints
-
-All endpoints are prefixed with `/api/v1`.
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/` | None | Health check |
-| `POST` | `/api/v1/auth/register` | None | Register new user |
-| `POST` | `/api/v1/auth/login` | None | Login and get JWT |
-| `POST` | `/api/v1/auth/forgot-password` | None | Request password reset |
-| `POST` | `/api/v1/auth/reset-password` | None | Set new password with token |
-
-### Register — Request Body
-```json
-{
-  "name": "Aaryan Shah",
-  "email": "aaryan@university.edu",
-  "password": "SecurePassword123",
-  "role": "student",
-  "student_details": {
-    "roll_number": "22CE001",
-    "branch": "Computer Engineering",
-    "graduation_year": 2026
-  }
-}
-```
-
-### Login — Request Body
-```json
-{
-  "email": "aaryan@university.edu",
-  "password": "SecurePassword123"
-}
-```
-
-### Login — Success Response
-```json
-{
-  "success": true,
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "token_type": "bearer",
-  "user": {
-    "id": "64abc123...",
-    "name": "Aaryan Shah",
-    "email": "aaryan@university.edu",
-    "role": "student"
-  }
-}
-```
-
----
-
-## 🔑 Environment Variables Reference
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `MONGODB_URI` | Yes | `mongodb://localhost:27017` | MongoDB connection string |
-| `MONGODB_DATABASE` | Yes | `placement_ai` | Database name |
-| `JWT_SECRET_KEY` | Yes | (default in code) | HS256 signing secret — **change in production** |
-| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | No | `60` | Token validity in minutes |
-| `SMTP_HOST` | No | `""` | SMTP server hostname |
-| `SMTP_PORT` | No | `587` | SMTP server port |
-| `SMTP_USERNAME` | No | `""` | SMTP login username |
-| `SMTP_PASSWORD` | No | `""` | SMTP login password |
-| `SMTP_FROM_EMAIL` | No | `no-reply@placementai.com` | Sender display email |
-| `FRONTEND_URL` | No | `http://localhost:3000` | Used in reset password email links |
+Tests use `mongomock` — no real MongoDB required.
 
 ---
 
@@ -276,31 +213,24 @@ All endpoints are prefixed with `/api/v1`.
 
 | Collection | Purpose |
 |---|---|
-| `users` | User accounts — unique email index |
-| `password_reset_tokens` | One-time reset tokens — TTL index (60 min auto-expiry) |
+| `users` | All user accounts (student, recruiter, tpo, admin) |
+| `jobs` | Job/drive listings posted by recruiters |
+| `applications` | Student job applications |
+| `password_reset_tokens` | One-time reset tokens (60 min TTL auto-expiry) |
 
-### users document shape
-```json
-{
-  "_id": "ObjectId",
-  "name": "string",
-  "email": "string (unique, lowercase)",
-  "password_hash": "string (bcrypt)",
-  "role": "student | recruiter | tpo | admin",
-  "student_details": { ... },
-  "created_at": "datetime",
-  "updated_at": "datetime"
-}
-```
+---
 
-### password_reset_tokens document shape
-```json
-{
-  "_id": "ObjectId",
-  "user_id": "ObjectId (ref: users)",
-  "token_hash": "string (SHA-256 of raw token)",
-  "created_at": "datetime",
-  "expires_at": "datetime (TTL indexed)",
-  "used_at": "datetime | null"
-}
-```
+## 🔑 Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `MONGODB_URI` | Yes | MongoDB connection string |
+| `MONGODB_DATABASE` | Yes | Database name |
+| `JWT_SECRET_KEY` | Yes | HS256 signing secret |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | No | Token validity (default: 60) |
+| `SMTP_HOST` | No | SMTP server (blank = console mode) |
+| `SMTP_PORT` | No | SMTP port (default: 587) |
+| `SMTP_USERNAME` | No | SMTP login |
+| `SMTP_PASSWORD` | No | SMTP password |
+| `SMTP_FROM_EMAIL` | No | Sender email |
+| `FRONTEND_URL` | No | Used in reset password email links |

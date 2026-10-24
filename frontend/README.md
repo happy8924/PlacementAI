@@ -21,69 +21,101 @@
 
 ```
 frontend/
-├── public/               # Static assets served directly
+├── public/
+│   ├── favicon.png             # Official PlacementAI favicon
+│   ├── logo-icon.png           # Icon-only logo
+│   └── logo-full.png           # Full horizontal logo
 ├── src/
-│   ├── components/       # Reusable UI components
-│   │   ├── layout/       # Route guards, layout wrappers
-│   │   │   └── RouteGuard.jsx     # JWT auth guard for protected routes
-│   │   ├── AICore.jsx
-│   │   ├── CollegeSection.jsx
-│   │   ├── DashboardPreview.jsx
-│   │   ├── Features.jsx
-│   │   ├── FinalCTA.jsx
+│   ├── components/
+│   │   ├── admin/
+│   │   │   └── AdminSidebar.jsx
+│   │   ├── recruiter/
+│   │   │   └── RecruiterSidebar.jsx
+│   │   ├── student/
+│   │   │   └── StudentSidebar.jsx
+│   │   ├── tpo/
+│   │   │   ├── TpoSidebar.jsx
+│   │   │   ├── TpoHeader.jsx
+│   │   │   └── TpoLayout.jsx
+│   │   ├── layout/
+│   │   │   └── RouteGuard.jsx       # JWT auth guard for protected routes
 │   │   ├── Footer.jsx
-│   │   ├── Hero.jsx
-│   │   ├── HowItWorks.jsx
-│   │   ├── Navbar.jsx             # Updated with Login/Signup links
-│   │   ├── Pricing.jsx
-│   │   ├── Problem.jsx
-│   │   ├── Solution.jsx
-│   │   ├── StudentDashboard.jsx
-│   │   ├── ThemeToggle.jsx
-│   │   └── TrustSecurity.jsx
+│   │   ├── Navbar.jsx
+│   │   └── PageTitleManager.jsx     # Dynamic route-based browser tab titles
 │   ├── context/
-│   │   └── AuthContext.jsx        # Global auth state + localStorage sync
+│   │   └── AuthContext.jsx          # Global auth state + localStorage sync
 │   ├── hooks/
-│   │   └── useAuth.jsx            # useAuth() custom hook
+│   │   └── useAuth.jsx              # useAuth() custom hook
 │   ├── pages/
 │   │   ├── landing/
-│   │   │   └── LandingPage.jsx    # Public landing page
+│   │   │   └── LandingPage.jsx
 │   │   ├── student/
 │   │   │   └── StudentDashboardPage.jsx
 │   │   ├── recruiter/
 │   │   │   └── RecruiterDashboardPage.jsx
+│   │   │   └── RecruiterJobsPage.jsx
 │   │   ├── tpo/
-│   │   │   └── TpoDashboardPage.jsx
+│   │   │   ├── TpoDashboardPage.jsx
+│   │   │   ├── TpoApprovalsPage.jsx
+│   │   │   ├── TpoStudentsPage.jsx
+│   │   │   ├── TpoRecruitmentPage.jsx
+│   │   │   ├── TpoAnalyticsPage.jsx
+│   │   │   └── TpoAuditPage.jsx
 │   │   ├── admin/
 │   │   │   └── AdminDashboardPage.jsx
 │   │   ├── LoginPage.jsx
 │   │   ├── SignupPage.jsx
+│   │   ├── AwaitingApprovalPage.jsx
 │   │   ├── ForgotPasswordPage.jsx
 │   │   └── ResetPasswordPage.jsx
 │   ├── services/
-│   │   ├── api.js                 # Axios instance with auth interceptors
-│   │   └── auth.js                # API calls (login, register, forgot, reset)
-│   ├── App.jsx                    # Router tree with RouteGuard protection
-│   ├── index.css                  # Tailwind directives + design tokens
-│   └── main.jsx                   # React DOM root mount
-├── index.html                     # Vite entry HTML with anti-FOUC script
+│   │   ├── api.js                   # Axios instance with auth interceptors
+│   │   ├── auth.js                  # Auth API calls (login, register, forgot, reset)
+│   │   └── tpo.js                   # TPO module API calls
+│   ├── App.jsx                      # Router tree with RouteGuard + PageTitleManager
+│   ├── index.css                    # Tailwind directives + design tokens
+│   └── main.jsx                     # React DOM root mount
+├── index.html                       # Vite entry HTML with favicon
 ├── package.json
 ├── tailwind.config.js
 ├── vite.config.js
 ├── postcss.config.js
-├── .env.example                   # Environment variable template
+├── .env.example
 └── .gitignore
 ```
 
 ---
 
-## ⚙️ How the Authentication Flow Works (Frontend)
+## 🗺️ Available Routes
+
+| Route | Role | Description |
+|---|---|---|
+| `/` | Public | Landing page |
+| `/login` | Public | Unified sign-in page |
+| `/signup` | Public | Role-based registration |
+| `/forgot-password` | Public | Password reset request |
+| `/reset-password?token=...` | Public | New password form |
+| `/awaiting-approval` | Public | Post-signup approval notice |
+| `/student/dashboard` | student | Student workspace & job feed |
+| `/recruiter/dashboard` | recruiter | Recruiter hub |
+| `/recruiter/jobs` | recruiter | Manage posted drives |
+| `/tpo/dashboard` | tpo | TPO overview & stats |
+| `/tpo/approvals` | tpo | Approve/reject drive requests |
+| `/tpo/students` | tpo | Full student directory |
+| `/tpo/recruitment` | tpo | Recruitment oversight |
+| `/tpo/analytics` | tpo | Placement analytics |
+| `/tpo/audit` | tpo | Activity audit timeline |
+| `/admin/dashboard` | admin | System admin terminal |
+
+---
+
+## ⚙️ Authentication Flow
 
 ```
 User visits /login
         │
         ▼
-LoginPage.jsx → calls authService.login(email, password)
+LoginPage.jsx → authService.login(email, password)
         │
         ▼
 api.js (Axios) → POST /api/v1/auth/login
@@ -92,93 +124,58 @@ api.js (Axios) → POST /api/v1/auth/login
 AuthContext.jsx → saves token + user to localStorage
         │
         ▼
-App.jsx (Router) → navigates to /student/dashboard (or role-specific)
+App.jsx → navigates to role-specific dashboard
         │
         ▼
-RouteGuard.jsx → reads AuthContext, checks isAuthenticated + role
-        │
-        ├─ NOT AUTHENTICATED → redirect to /login
-        └─ AUTHENTICATED → render protected page
+RouteGuard.jsx → checks isAuthenticated + role
+        ├─ NOT AUTHENTICATED → /login
+        └─ AUTHENTICATED → render page
 ```
 
 **Token Handling:**
-- JWT is stored in `localStorage` under key `token`
-- All outgoing requests via `api.js` automatically inject `Authorization: Bearer <token>`
-- On 401 response, token is removed and user is redirected to `/login?expired=true`
+- JWT stored in `localStorage` under key `token`
+- All requests via `api.js` inject `Authorization: Bearer <token>`
+- On 401, token cleared and user redirected to `/login?expired=true`
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js v20+ (v20.18.2 or higher recommended)
+- Node.js v20+
 - npm v10+
-- Backend server running (see `../backend/README.md`)
+- Backend running (see `../backend/README.md`)
 
-### 1. Copy environment configuration
-
+### Setup
 ```bash
 cp .env.example .env
-```
+# Edit .env: VITE_API_URL=http://localhost:8000/api/v1
 
-Edit `.env`:
-```env
-VITE_API_URL=http://localhost:8000/api/v1
-```
-
-### 2. Install dependencies
-
-```bash
 npm install
-```
-
-### 3. Start development server
-
-```bash
 npm run dev
 ```
 
-Frontend will start at: **http://localhost:3000**
+Frontend: **http://localhost:3000**
 
-### 4. Build for production
-
+### Production Build
 ```bash
 npm run build
 ```
-
-Build artifacts will be in the `dist/` directory.
-
----
-
-## 🗺️ Available Routes
-
-| Route | Type | Description |
-|---|---|---|
-| `/` | Public | Landing page |
-| `/login` | Public | Unified sign-in page |
-| `/signup` | Public | Role-based registration |
-| `/forgot-password` | Public | Password reset request |
-| `/reset-password?token=...` | Public | New password form |
-| `/student/dashboard` | Protected (student) | Student workspace |
-| `/recruiter/dashboard` | Protected (recruiter) | Recruiter hub |
-| `/tpo/dashboard` | Protected (tpo) | Placement officer portal |
-| `/admin/dashboard` | Protected (admin) | System admin terminal |
 
 ---
 
 ## 🎨 Design System
 
-The frontend uses a custom CSS variable-based design system defined in `src/index.css`:
-
-- **Background:** Deep Navy (`#0B132B`) in light mode / Charcoal (`#09090B`) in dark mode
-- **Accent colors:** Cyan/Teal + Blue-to-Purple gradients
-- **Typography:** Inter, Plus Jakarta Sans (sans), Geist Mono (mono)
-- **Dark mode:** Class-based (`html.dark`), toggled via `ThemeToggle` component
+- **Background:** Deep Navy (`#0B132B`) / Charcoal dark mode
+- **Accents:** Cyan/Teal + Blue-to-Purple gradients
+- **Typography:** Inter, Plus Jakarta Sans, Geist Mono
+- **Dark mode:** Class-based (`html.dark`)
+- **Branding:** Official logo (`logo-full.png`, `logo-icon.png`) + favicon across all sidebars, navbars, and auth pages
 
 ---
 
 ## 🔑 Environment Variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `VITE_API_URL` | Yes | `http://localhost:8000/api/v1` | Backend API base URL |
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_API_URL` | Yes | Backend API base URL (default: `http://localhost:8000/api/v1`) |
