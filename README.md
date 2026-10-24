@@ -1,92 +1,104 @@
-# PlacementAI — Premium SaaS Landing Page
+# PlacementAI
 
-PlacementAI is a component-based, production-ready React.js frontend landing page. Engineered using Vite and Tailwind CSS, the platform delivers a premium, dark-mode-first aesthetic showcasing an AI-powered career and placement intelligence system.
+**AI-powered Campus Placement Management Platform** — A full-stack SaaS application connecting Students, Recruiters, TPO Officers, and Admins through an intelligent, role-based placement ecosystem.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Overview
 
-### Prerequisites
-
-Ensure you have [Node.js](https://nodejs.org/) installed (v18+ recommended).
-
-### Installation
-
-1. Clone the repository and navigate to the project directory:
-   ```bash
-   cd PlacementAI
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the local development server:
-   ```bash
-   npm run dev
-   ```
-   The local environment will load at `http://localhost:3000/`.
-
-4. Build for production:
-   ```bash
-   npm run build
-   ```
-   Production artifacts will compile into the `dist/` directory.
+PlacementAI automates and streamlines the entire campus placement lifecycle:
+- **Students** build profiles, get AI-matched job recommendations, and track applications
+- **Recruiters** post drives, broadcast to eligible students via email, and manage interviews
+- **TPO Officers** oversee placements, approve/reject drives, monitor student pipelines, and view analytics
+- **Admins** manage platform users, system settings, and audit logs
 
 ---
 
 ## 🛠️ Technology Stack
 
-* **Core**: React.js (v18+)
-* **Build Tool**: Vite (v5)
-* **Styling**: Tailwind CSS (v3) + PostCSS Autoprefixer
-* **Typography**: Google Fonts (Inter, Plus Jakarta Sans, Geist Mono)
-* **Icons**: Inline SVGs & Lucide icons
+| Layer | Technology |
+|---|---|
+| Frontend | React 19 + Vite + Tailwind CSS |
+| Backend | FastAPI (Python 3.11+) |
+| Database | MongoDB 6+ |
+| Auth | JWT (HS256) + bcrypt |
+| Email | SMTP with console fallback |
+| Icons | Lucide React |
 
 ---
 
 ## 📂 Project Structure
 
-```text
+```
 PlacementAI/
-├── dist/                   # Production build assets
-├── node_modules/           # Node dependencies
-├── src/
-│   ├── components/         # Reusable React UI components
-│   │   ├── AICore.jsx           # Section 7: AI Core reasoning flow diagram
-│   │   ├── CollegeSection.jsx   # Section 9: College & TPO monitoring dashboard
-│   │   ├── DashboardPreview.jsx # Reusable mockup of the workspace preview
-│   │   ├── Features.jsx         # Section 6: 6 core platform capabilities grid
-│   │   ├── FinalCTA.jsx         # Section 12: Final conversion section
-│   │   ├── Footer.jsx           # Section 13: Footer brand links
-│   │   ├── Hero.jsx             # Section 2: Hero section & landing overview
-│   │   ├── HowItWorks.jsx       # Section 5: Timeline of 7 platform steps
-│   │   ├── Navbar.jsx           # Section 1: Navigation bar & mobile menu
-│   │   ├── OnboardingModal.jsx  # Interactive environment setup modal
-│   │   ├── Problem.jsx          # Section 3: Fragmented preparation warning cards
-│   │   ├── Pricing.jsx          # Section 10: Free, Premium, & College tiers
-│   │   ├── Solution.jsx         # Section 4: Unified ecosystem pipeline diagram
-│   │   ├── ThemeToggle.jsx      # Light / Dark theme switcher control
-│   │   └── TrustSecurity.jsx    # Section 11: Privacy & security compliance
-│   ├── pages/
-│   │   └── LandingPage.jsx # Parent container assembling the exact page flow
-│   ├── App.jsx             # Root React component
-│   ├── index.css           # Global design tokens and Tailwind directives
-│   └── main.jsx            # React SPA entry mount script
-├── index.html              # Main Vite entry document with anti-FOUC script
-├── package.json            # Scripts and dependencies configurations
-├── postcss.config.js       # PostCSS configuration
-├── tailwind.config.js      # Custom Tailwind styling tokens
-└── vite.config.js          # Development server and bundle config
+├── frontend/          # React + Vite client application
+│   ├── public/        # Static assets (logo, favicon, icons)
+│   └── src/
+│       ├── components/  # Shared + role-specific UI components
+│       ├── pages/       # Route-level page components (student, recruiter, tpo, admin)
+│       ├── services/    # Axios API clients per module
+│       └── context/     # Auth context + global state
+├── backend/           # FastAPI + MongoDB server
+│   ├── app/
+│   │   ├── api/v1/    # REST API routers (auth, student, recruiter, tpo, admin)
+│   │   ├── services/  # Business logic (eligibility, email)
+│   │   ├── schemas/   # Pydantic models
+│   │   └── core/      # Config, DB, security
+│   └── scripts/       # Seed scripts
+└── .agent/            # AI planning and workflow files
 ```
 
 ---
 
-## 💎 Design Language
+## ⚡ Quick Start
 
-The visual system is designed to convey the authoritative, precise, and sophisticated aesthetic of a premium AI SaaS platform:
-* **Backgrounds**: Deep Navy (`#0B132B`) / Charcoal base theme with interactive light mode compatibility.
-* **Accents**: Cyan/Teal border highlights paired with Blue-to-Purple brand gradients.
-* **Elevation**: Low-contrast hairline dividers (`border-theme`) and diffused ambient shadows.
-* **Transitions**: Smooth duration-300 active toggles with FOUC prevention logic in the root head.
+### Backend
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env   # fill in values
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+### Frontend
+```powershell
+cd frontend
+npm install
+cp .env.example .env   # set VITE_API_URL=http://localhost:8000/api/v1
+npm run dev
+```
+
+- Frontend: **http://localhost:3000**
+- Backend API: **http://localhost:8000**
+- Swagger Docs: **http://localhost:8000/docs**
+
+---
+
+## 👥 User Roles
+
+| Role | Access |
+|---|---|
+| `student` | Profile, job feed (eligibility-filtered), applications, roadmap |
+| `recruiter` | Post drives, broadcast emails to eligible students, view applicants |
+| `tpo` | Approve drives, student directory, recruitment oversight, analytics |
+| `admin` | Full platform management, user control, system audit |
+
+---
+
+## 🔐 Key Features
+
+- **Strict Eligibility Engine** — Jobs broadcast and displayed only to students matching CGPA, branch, and skills
+- **Role-Based JWT Auth** — Protected routes enforced on both frontend (RouteGuard) and backend (Depends)
+- **TPO Module** — Full placement officer portal with approvals queue, analytics, and audit timeline
+- **Email Notifications** — Automated broadcast emails to eligible students on new drive creation
+- **Dynamic Page Titles** — SEO-friendly route-based browser tab titles via `PageTitleManager`
+- **Official Branding** — Consistent logo and favicon across all pages and sidebars
+
+---
+
+## 📄 Documentation
+
+- [Frontend README](./frontend/README.md)
+- [Backend README](./backend/README.md)
