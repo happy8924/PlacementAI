@@ -117,10 +117,10 @@ def get_tpo_dashboard_metrics(
     total_students = db.users.count_documents({"role": "student"})
     total_recruiters = db.users.count_documents({"role": "recruiter"})
     total_jobs = db.jobs.count_documents({})
-    total_applications = db.job_applications.count_documents({})
+    total_applications = db.applications.count_documents({}) or db.job_applications.count_documents({})
     
     # Placements count (applications with status 'offered' or 'placed' or 'accepted')
-    placed_count = db.job_applications.count_documents({"status": {"$in": ["offered", "accepted", "placed"]}})
+    placed_count = db.applications.count_documents({"status": {"$in": ["offered", "accepted", "placed", "selected"]}}) or db.job_applications.count_documents({"status": {"$in": ["offered", "accepted", "placed"]}})
     
     # Interviews count
     interview_count = db.interviews.count_documents({}) if "interviews" in db.list_collection_names() else 0
@@ -334,6 +334,18 @@ def decide_job_approval(
     except Exception:
         db.jobs.update_one({"_id": job_id}, {"$set": update_doc})
 
+    # When TPO approves the drive, automatically broadcast email to eligible candidates via n8n pipeline!
+    broadcast_stats = None
+    if decision == "approve":
+        try:
+            from app.api.v1.recruiter import trigger_job_broadcast_internal
+            job_copy = dict(job)
+            job_copy.update(update_doc)
+            job_copy["_id"] = str(job["_id"])
+            broadcast_stats = trigger_job_broadcast_internal(db, str(job["_id"]), job_copy)
+        except Exception as e:
+            logger.error(f"Failed to auto-broadcast job on TPO approval: {e}")
+
     log_tpo_action(
         db,
         actor=current_tpo,
@@ -343,15 +355,17 @@ def decide_job_approval(
             "title": job.get("title"),
             "company_name": job.get("company_name"),
             "decision": decision,
-            "reason": payload.reason if decision == "reject" else None
+            "reason": payload.reason if decision == "reject" else None,
+            "broadcast_stats": broadcast_stats
         }
     )
 
     return {
         "success": True,
-        "message": f"Job '{job.get('title')}' has been {decision}d.",
+        "message": f"Job '{job.get('title')}' has been {decision}d and broadcasted to eligible candidates.",
         "job_id": job_id,
-        "status": new_status
+        "status": new_status,
+        "broadcast": broadcast_stats
     }
 
 # ── 3. Student Directory & Search / Filter ──
@@ -408,7 +422,13 @@ def list_students(
         clean_prof = serialize_doc(prof)
 
         # Check placed status
-        has_placement = db.job_applications.find_one({
+        target_st_ids = [u_id]
+        if ObjectId.is_valid(u_id):
+            target_st_ids.append(ObjectId(u_id))
+        has_placement = db.applications.find_one({
+            "student_id": {"$in": target_st_ids},
+            "status": {"$in": ["offered", "accepted", "placed", "selected"]}
+        }) or db.job_applications.find_one({
             "student_id": u_id,
             "status": {"$in": ["offered", "accepted", "placed"]}
         })
@@ -467,7 +487,10 @@ def get_student_detail(
     clean_user["profile"] = serialize_doc(profile) if profile else None
 
     # Application history
-    applications = list(db.job_applications.find({"student_id": u_id_str}).sort("applied_at", -1))
+    target_u_ids = [u_id_str]
+    if ObjectId.is_valid(u_id_str):
+        target_u_ids.append(ObjectId(u_id_str))
+    applications = list(db.applications.find({"student_id": {"$in": target_u_ids}}).sort("applied_at", -1)) or list(db.job_applications.find({"student_id": u_id_str}).sort("applied_at", -1))
     clean_user["applications"] = [serialize_doc(a) for a in applications]
 
     # Roadmaps / readiness
@@ -502,10 +525,11 @@ def get_recruitment_jobs(
         clean_job = serialize_doc(job)
         
         # Count total applicants for this job
-        app_count = db.job_applications.count_documents({"job_id": j_id})
-        shortlisted_count = db.job_applications.count_documents({"job_id": j_id, "status": "shortlisted"})
-        interview_count = db.job_applications.count_documents({"job_id": j_id, "status": "interview_scheduled"})
-        offered_count = db.job_applications.count_documents({"job_id": j_id, "status": {"$in": ["offered", "accepted", "placed"]}})
+        j_query = {"$or": [{"job_id": j_id}, {"job_id": ObjectId(j_id) if ObjectId.is_valid(j_id) else j_id}]}
+        app_count = db.applications.count_documents(j_query) or db.job_applications.count_documents({"job_id": j_id})
+        shortlisted_count = db.applications.count_documents({**j_query, "status": "shortlisted"}) or db.job_applications.count_documents({"job_id": j_id, "status": "shortlisted"})
+        interview_count = db.applications.count_documents({**j_query, "status": "interview_scheduled"}) or db.job_applications.count_documents({"job_id": j_id, "status": "interview_scheduled"})
+        offered_count = db.applications.count_documents({**j_query, "status": {"$in": ["offered", "accepted", "placed", "selected"]}}) or db.job_applications.count_documents({"job_id": j_id, "status": {"$in": ["offered", "accepted", "placed"]}})
 
         clean_job["metrics"] = {
             "total_applicants": app_count,
@@ -567,7 +591,11 @@ def get_job_eligible_students(
         }
 
         # Check if already applied
-        application = db.job_applications.find_one({"job_id": str(job["_id"]), "student_id": st_id})
+        target_st_ids = [st_id]
+        if ObjectId.is_valid(st_id):
+            target_st_ids.append(ObjectId(st_id))
+        j_query_ids = [str(job["_id"]), job["_id"]]
+        application = db.applications.find_one({"job_id": {"$in": j_query_ids}, "student_id": {"$in": target_st_ids}}) or db.job_applications.find_one({"job_id": str(job["_id"]), "student_id": st_id})
         record["application_status"] = application.get("status") if application else "not_applied"
 
         if is_eligible:
@@ -611,7 +639,8 @@ def get_job_pipeline_audit(
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
-    applications = list(db.job_applications.find({"job_id": str(job["_id"])}).sort("applied_at", -1))
+    j_query_ids = [str(job["_id"]), job["_id"]]
+    applications = list(db.applications.find({"job_id": {"$in": j_query_ids}}).sort("applied_at", -1)) or list(db.job_applications.find({"job_id": str(job["_id"])}).sort("applied_at", -1))
     
     enriched_apps = []
     for app in applications:
@@ -646,7 +675,7 @@ def get_placement_analytics(
     Distinguishes zero values from missing data clearly.
     """
     students = list(db.users.find({"role": "student"}))
-    applications = list(db.job_applications.find({}))
+    applications = list(db.applications.find({})) or list(db.job_applications.find({}))
     
     # Branch-wise aggregation
     branch_map: Dict[str, Dict[str, int]] = {}

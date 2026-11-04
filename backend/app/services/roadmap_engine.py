@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -26,40 +26,42 @@ VERIFIED_FREE_RESOURCES = {
     ]
 }
 
-def check_student_job_eligibility(student_profile: Dict[str, Any], db_jobs: List[Dict[str, Any]]) -> Tuple[bool, List[Dict[str, Any]], str]:
+def check_student_job_eligibility(student_profile: Dict[str, Any], db_jobs: List[Dict[str, Any]], student_user: Optional[Dict[str, Any]] = None) -> Tuple[bool, List[Dict[str, Any]], str]:
     """
-    Check if the student is eligible for any active job posted by recruiters.
-    Eligibility checks:
-    - Job status == 'open'
-    - Student branch matches eligible_branches (or eligible_branches is empty / contains "All" / "All Branches")
-    - Student CGPA is >= min_cgpa required by the job (if CGPA exists)
+    Authoritative eligibility check for learning roadmaps:
+    Uses app.services.eligibility.evaluate_student_job_eligibility for uniform criteria.
+    Falls back to branch and academic criteria so students can prepare for potential roles.
     """
-    open_jobs = [j for j in db_jobs if j.get("status") == "open"]
-    
+    from app.services.eligibility import evaluate_student_job_eligibility
+
+    open_jobs = [j for j in db_jobs if j.get("status") in ("open", "active")]
     if not open_jobs:
         return False, [], "abhi aapke roles ke specific koi compaany nahi he to roadmap available nahi he."
 
-    student_branch = (student_profile.get("branch") or "").strip().lower()
-    student_cgpa = float(student_profile.get("cgpa") or 0.0)
+    user_context = student_user or {
+        "_id": student_profile.get("user_id", ""),
+        "role": "student",
+        "is_approved": True,
+        "is_active": True
+    }
 
     eligible_jobs = []
     for job in open_jobs:
-        min_cgpa = float(job.get("min_cgpa") or 0.0)
-        eligible_branches = [b.strip().lower() for b in job.get("eligible_branches", [])]
-        
-        # Branch match check
-        branch_eligible = (
-            not eligible_branches or
-            "all" in eligible_branches or
-            "all branches" in eligible_branches or
-            any(student_branch in b or b in student_branch for b in eligible_branches if student_branch)
-        )
-
-        # CGPA match check (if student CGPA is 0/unspecified, allow with warning)
-        cgpa_eligible = (student_cgpa == 0.0) or (student_cgpa >= min_cgpa)
-
-        if branch_eligible and cgpa_eligible:
+        is_ok, reasons, metrics = evaluate_student_job_eligibility(user_context, student_profile, job)
+        if is_ok:
             eligible_jobs.append(job)
+
+    # Preparation fallback: if strict tech stack match not yet met, match by branch/CGPA for guided upskilling
+    if not eligible_jobs:
+        st_branch = (student_profile.get("branch") or "").strip().lower()
+        st_cgpa = float(student_profile.get("cgpa") or 0.0)
+        for job in open_jobs:
+            min_cgpa = float(job.get("min_cgpa") or 0.0)
+            branches = [b.strip().lower() for b in (job.get("eligible_branches") or []) if b.strip()]
+            branch_match = not branches or "all" in branches or any(st_branch in b or b in st_branch for b in branches)
+            cgpa_match = (st_cgpa == 0.0) or (st_cgpa >= min_cgpa)
+            if branch_match and cgpa_match:
+                eligible_jobs.append(job)
 
     if not eligible_jobs:
         return False, [], "abhi aapke roles ke specific koi compaany nahi he to roadmap available nahi he."

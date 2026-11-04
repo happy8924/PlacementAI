@@ -293,24 +293,89 @@ def get_student_interviews(current_user: dict = Depends(get_current_user), db: M
     from bson import ObjectId
     
     interviews = []
+    seen_ids = set()
 
-    # 1. Fetch AI Mock Interviews from `interviews` collection
-    interviews_cursor = db.interviews.find({"user_id": user_id_str})
-    for doc in interviews_cursor:
-        interviews.append({
-            "id": str(doc["_id"]),
-            "meeting_title": "AI Mock Interview",
-            "interview_type": "Mock",
-            "date": doc.get("created_at").strftime("%Y-%m-%d") if doc.get("created_at") else "TBA",
-            "time": doc.get("created_at").strftime("%H:%M") if doc.get("created_at") else "TBA",
-            "join_link": doc.get("join_link") or "", # Minimal addition for future
-            "status": "completed" if doc.get("is_completed") else "scheduled",
-            "company_name": "PlacementAI Simulator",
-            "job_role": doc.get("job_role", "Practice Role")
+    # 1. Fetch AI Mock Interviews from interviews collection
+    try:
+        mock_cursor = db.interviews.find({
+            "$or": [{"user_id": user_id_str}, {"student_id": user_id_str}],
+            "interview_type": "Mock"
         })
+        for doc in mock_cursor:
+            iv_id = str(doc["_id"])
+            seen_ids.add(iv_id)
+            interviews.append({
+                "id": iv_id,
+                "meeting_title": doc.get("meeting_title") or "AI Mock Interview",
+                "interview_type": "Mock",
+                "date": doc.get("date") or (doc.get("created_at").strftime("%Y-%m-%d") if doc.get("created_at") else "TBA"),
+                "time": doc.get("time") or (doc.get("created_at").strftime("%H:%M") if doc.get("created_at") else "TBA"),
+                "join_link": doc.get("join_link") or doc.get("meeting_link") or "",
+                "status": doc.get("status") or ("completed" if doc.get("is_completed") else "scheduled"),
+                "company_name": "PlacementAI Simulator",
+                "job_role": doc.get("job_role", "Practice Role"),
+                "notes": doc.get("notes") or ""
+            })
+    except Exception as e:
+        logger.error(f"Error fetching mock interviews: {e}")
 
-    # 2. Fetch Scheduled Interviews from `placement_rounds` via `applications`
-    # Try both string and ObjectId for student_id
+    # 2. Fetch Scheduled Interviews from interviews & recruiter_interviews (scheduled by Recruiters)
+    try:
+        target_ids = [user_id_str]
+        try:
+            target_ids.append(ObjectId(user_id_str))
+        except Exception:
+            pass
+
+        recruiter_ivs = list(db.interviews.find({
+            "$or": [
+                {"student_id": {"$in": target_ids}},
+                {"user_id": {"$in": target_ids}}
+            ],
+            "interview_type": {"$ne": "Mock"}
+        }).sort("created_at", -1))
+
+        recruiter_ivs_legacy = list(db.recruiter_interviews.find({
+            "student_id": {"$in": target_ids}
+        }).sort("created_at", -1))
+
+        for iv in recruiter_ivs + recruiter_ivs_legacy:
+            iv_id = str(iv["_id"])
+            if iv_id in seen_ids:
+                continue
+            seen_ids.add(iv_id)
+
+            job_title = "Placement Drive Role"
+            company_name = "Recruiting Partner"
+            
+            job_id = iv.get("job_id")
+            if job_id:
+                try:
+                    job_doc = db.jobs.find_one({"_id": ObjectId(job_id)})
+                except Exception:
+                    job_doc = db.jobs.find_one({"_id": job_id})
+                if job_doc:
+                    job_title = job_doc.get("title") or job_title
+                    company_name = job_doc.get("company_name") or company_name
+
+            interviews.append({
+                "id": iv_id,
+                "meeting_title": iv.get("round") or "Technical Interview",
+                "interview_type": iv.get("round") or "Technical",
+                "date": iv.get("date") or "TBA",
+                "time": iv.get("time") or "TBA",
+                "mode": iv.get("mode") or "Online",
+                "join_link": iv.get("meeting_link") or "",
+                "location": iv.get("physical_location") or "",
+                "status": iv.get("status") or "Scheduled",
+                "company_name": company_name,
+                "job_role": job_title,
+                "notes": iv.get("notes") or ""
+            })
+    except Exception as e:
+        logger.error(f"Error fetching scheduled recruiter interviews: {e}")
+
+    # 3. Fetch Scheduled Placement Rounds if any
     try:
         user_obj_id = ObjectId(user_id_str)
         apps = list(db.applications.find({"$or": [{"student_id": user_id_str}, {"student_id": user_obj_id}]}))
@@ -322,41 +387,34 @@ def get_student_interviews(current_user: dict = Depends(get_current_user), db: M
         rounds_cursor = db.placement_rounds.find({"application_id": {"$in": app_ids}})
         
         for round_doc in rounds_cursor:
-            # Find the parent application
+            r_id = str(round_doc["_id"])
+            if r_id in seen_ids:
+                continue
+            seen_ids.add(r_id)
+
             app = next((a for a in apps if str(a["_id"]) == str(round_doc["application_id"])), None)
-            
             job = {}
             company = {}
-            
             if app and app.get("job_id"):
                 try:
                     job_doc = db.jobs.find_one({"_id": ObjectId(app["job_id"])})
                 except Exception:
                     job_doc = db.jobs.find_one({"_id": app["job_id"]})
-                    
                 if job_doc:
-                    job = {"id": str(job_doc["_id"]), "title": job_doc.get("title", "")}
-                    
-                    if job_doc.get("company_id"):
-                        try:
-                            comp_doc = db.companies.find_one({"_id": ObjectId(job_doc["company_id"])})
-                        except Exception:
-                            comp_doc = db.companies.find_one({"_id": job_doc["company_id"]})
-                        if comp_doc:
-                            company = {"id": str(comp_doc["_id"]), "name": comp_doc.get("name", "")}
+                    job = {"title": job_doc.get("title", "")}
+                    company = {"name": job_doc.get("company_name", "")}
 
             scheduled_at = round_doc.get("scheduled_at")
-            
             interviews.append({
-                "id": str(round_doc["_id"]),
+                "id": r_id,
                 "meeting_title": round_doc.get("notes") or f"{round_doc.get('round_type', 'Interview')} Round",
                 "interview_type": round_doc.get("round_type", "Technical"),
                 "date": scheduled_at.strftime("%Y-%m-%d") if scheduled_at else "TBA",
                 "time": scheduled_at.strftime("%H:%M") if scheduled_at else "TBA",
-                "join_link": round_doc.get("meeting_url") or "", # Minimal addition for link
+                "join_link": round_doc.get("meeting_url") or "",
                 "status": round_doc.get("result", "scheduled"),
-                "company_name": company.get("name") or "Unknown Company",
-                "job_role": job.get("title") or "Unknown Role"
+                "company_name": company.get("name") or "Recruiting Company",
+                "job_role": job.get("title") or "Graduate Trainee"
             })
 
     return {
@@ -554,8 +612,15 @@ def apply_to_job(
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
-    # Strict Eligibility Check: Student must meet CGPA, branch, and skill criteria
+    # 1. Enforce student profile completion before allowing applications
     student_profile = db.student_profiles.find_one({"user_id": user_id_str}) or {}
+    if not student_profile or not student_profile.get("cgpa") or not student_profile.get("skills"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profile incomplete. Please complete your academic details (CGPA, branch, skills) before applying to jobs."
+        )
+
+    # 2. Strict Eligibility Check: Student must meet CGPA, branch, and skill criteria
     is_eligible, reasons, metrics = evaluate_student_job_eligibility(current_user, student_profile, job)
     if not is_eligible:
         reason_msg = "; ".join(reasons) if reasons else "Criteria not satisfied"

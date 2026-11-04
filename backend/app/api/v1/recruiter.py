@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.services.email import send_job_opportunity_email
 from app.services.eligibility import evaluate_student_job_eligibility
+from app.services.n8n import dispatch_job_broadcast_to_n8n
 
 logger = logging.getLogger(__name__)
 
@@ -424,6 +425,89 @@ def get_recruiter_jobs(current_user: dict = Depends(get_current_recruiter), db: 
         
     return {"success": True, "jobs": result}
 
+class JobEligibilityPreviewInput(BaseModel):
+    title: Optional[str] = "Job Role"
+    role: Optional[str] = None
+    min_cgpa: float = Field(0.0, ge=0.0, le=10.0)
+    eligible_branches: List[str] = []
+    requirements: List[str] = []
+    preferred_skills: Optional[List[str]] = []
+
+@router.post("/jobs/preview-eligibility")
+def preview_job_eligible_students(
+    data: JobEligibilityPreviewInput,
+    current_user: dict = Depends(get_current_recruiter),
+    db: MongoDatabase = Depends(get_db)
+):
+    """
+    Pre-submission preview: Calculate and display eligible candidates matching
+    the draft job criteria (CGPA, Branch, and Skills) without saving or broadcasting.
+    """
+    students_cursor = db.users.find({"role": "student"})
+    students_list = list(students_cursor)
+    
+    clean_branches = [b.strip() for b in data.eligible_branches if b.strip()]
+    clean_skills = [s.strip() for s in data.requirements if s.strip()]
+
+    if not clean_branches:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please specify at least one eligible branch before checking student eligibility."
+        )
+
+    if not clean_skills:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please specify required technical skills before checking student eligibility."
+        )
+
+    if data.min_cgpa <= 0.0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Minimum CGPA must be a valid number greater than 0 (e.g. 6.0, 7.5)."
+        )
+
+    input_job = {
+        "title": data.title,
+        "role": data.role or data.title,
+        "min_cgpa": data.min_cgpa,
+        "eligible_branches": clean_branches,
+        "requirements": clean_skills,
+        "preferred_skills": data.preferred_skills
+    }
+
+    eligible_students = []
+    for st in students_list:
+        st_id_str = str(st["_id"])
+        st_prof = db.student_profiles.find_one({"user_id": st_id_str}) or {}
+        
+        is_eligible, reasons, metrics = evaluate_student_job_eligibility(st, st_prof, input_job)
+        if is_eligible:
+            st_name = st_prof.get("full_name") or st.get("name") or "Candidate"
+            st_branch = st_prof.get("branch") or st.get("student_details", {}).get("branch") or "N/A"
+            st_cgpa = st_prof.get("cgpa") or 0.0
+            
+            eligible_students.append({
+                "id": st_id_str,
+                "student_id": st.get("app_id") or st_id_str[:8].upper(),
+                "name": st_name,
+                "email": st.get("email"),
+                "branch": st_branch,
+                "cgpa": float(st_cgpa),
+                "matched_skills": metrics.get("matched_skills", []),
+                "match_score": metrics.get("skill_pct", 100.0)
+            })
+
+    # Sort candidates by CGPA descending
+    eligible_students.sort(key=lambda s: s["cgpa"], reverse=True)
+
+    return {
+        "success": True,
+        "total_registered_students": len(students_list),
+        "eligible_count": len(eligible_students),
+        "eligible_students": eligible_students
+    }
+
 @router.post("/jobs")
 def create_recruiter_job(
     data: RecruiterJobCreate,
@@ -443,21 +527,13 @@ def create_recruiter_job(
     job_dict["created_at"] = datetime.now(timezone.utc)
     job_dict["updated_at"] = datetime.now(timezone.utc)
 
-    # CRITICAL TPO APPROVAL CHECK: If recruiter/company is verified, open job immediately; otherwise set pending_approval!
-    if rec_profile.get("verification_status") == "verified":
-        job_dict["status"] = data.status if data.status in ["open", "approved", "closed"] else "open"
-    else:
-        job_dict["status"] = "pending_approval"
+    # All jobs created by recruiters must be reviewed & approved by TPO before broadcast!
+    job_dict["status"] = "pending_approval"
 
     res = db.jobs.insert_one(job_dict)
     job_id_str = str(res.inserted_id)
 
-    log_recruiter_activity(db, user_id_str, "JOB_CREATED", {"job_id": job_id_str, "title": data.title, "status": job_dict["status"]})
-
-    # Trigger job email broadcast ONLY IF job is approved/open!
-    broadcast_stats = None
-    if job_dict["status"] in ["open", "approved"]:
-        broadcast_stats = trigger_job_broadcast_internal(db, job_id_str, job_dict)
+    log_recruiter_activity(db, user_id_str, "JOB_CREATED_PENDING_APPROVAL", {"job_id": job_id_str, "title": data.title, "status": "pending_approval"})
 
     job_dict["id"] = job_id_str
     if "_id" in job_dict:
@@ -465,9 +541,9 @@ def create_recruiter_job(
 
     return {
         "success": True,
-        "message": f"Job vacancy created with status '{job_dict['status']}'.",
+        "message": "Job drive submitted successfully! It is now pending TPO review and approval before broadcast.",
         "job": job_dict,
-        "broadcast": broadcast_stats
+        "broadcast": None
     }
 
 @router.get("/jobs/{job_id}")
@@ -543,20 +619,19 @@ def toggle_job_status(
     
     return {"success": True, "message": f"Job status updated to '{status_str}'."}
 
-# ── 5. Email Broadcast Matching Engine ──
+# ── 5. Email Broadcast Matching Engine (n8n Webhook Integrated) ──
 
 def trigger_job_broadcast_internal(db: MongoDatabase, job_id_str: str, job_dict: dict) -> dict:
+    """
+    Authoritative broadcast workflow:
+    1. Query all active student accounts.
+    2. Strictly filter by CGPA, Branch, and Skills using evaluate_student_job_eligibility.
+    3. Hand off the eligible recipients queue to n8n Webhook.
+    """
     students_cursor = db.users.find({"role": "student"})
     students_list = list(students_cursor)
-    
-    eligible_count = 0
-    dispatched_count = 0
-    errors = []
 
-    req_skills = [s.strip().lower() for s in (job_dict.get("requirements") or job_dict.get("required_skills") or []) if s.strip()]
-    min_cgpa = float(job_dict.get("min_cgpa", 0.0))
-    eligible_branches = [b.strip().lower() for b in (job_dict.get("eligible_branches") or []) if b.strip()]
-    job_role = (job_dict.get("role") or job_dict.get("title") or "").strip().lower()
+    eligible_recipients = []
 
     for st_user in students_list:
         st_id_str = str(st_user["_id"])
@@ -571,45 +646,21 @@ def trigger_job_broadcast_internal(db: MongoDatabase, job_id_str: str, job_dict:
         if not is_eligible:
             continue
 
-        eligible_count += 1
-
-        existing_mail = db.mail_logs.find_one({"job_id": job_id_str, "student_id": st_id_str, "status": "sent"})
-        if existing_mail:
-            continue
-
         student_name = st_prof.get("full_name") or st_user.get("name") or "Candidate"
-        company_name = job_dict.get("company_name") or "Recruiter"
-
-        success, err_msg = send_job_opportunity_email(
-            student_email=st_email,
-            student_name=student_name,
-            job_data=job_dict,
-            company_name=company_name
-        )
-
-        db.mail_logs.insert_one({
-            "job_id": job_id_str,
+        eligible_recipients.append({
             "student_id": st_id_str,
+            "studentId": st_id_str,
             "student_name": student_name,
+            "studentName": student_name,
             "student_email": st_email,
-            "company_name": company_name,
-            "job_title": job_dict.get("title"),
-            "sent_at": datetime.now(timezone.utc),
-            "status": "sent" if success else "failed",
-            "error_message": err_msg,
-            "match_score": metrics.get("skill_pct", 100.0)
+            "studentEmail": st_email,
+            "match_score": metrics.get("skill_pct", 100.0),
+            "matched_skills": metrics.get("matched_skills", [])
         })
 
-        if success:
-            dispatched_count += 1
-        else:
-                errors.append(err_msg)
-
-    return {
-        "eligible_students": eligible_count,
-        "emails_dispatched": dispatched_count,
-        "failed_dispatches": len(errors)
-    }
+    # Dispatch via the n8n pipeline with duplicate protection
+    dispatch_result = dispatch_job_broadcast_to_n8n(db, job_id_str, job_dict, eligible_recipients)
+    return dispatch_result
 
 @router.post("/jobs/{job_id}/broadcast")
 def trigger_manual_job_broadcast(
@@ -631,12 +682,59 @@ def trigger_manual_job_broadcast(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot broadcast job before TPO approval.")
 
     stats = trigger_job_broadcast_internal(db, str(job["_id"]), job)
-    log_recruiter_activity(db, user_id_str, "JOB_BROADCAST_TRIGGERED", {"job_id": job_id, "dispatched": stats["emails_dispatched"]})
+    log_recruiter_activity(db, user_id_str, "JOB_BROADCAST_TRIGGERED", {"job_id": job_id, "stats": stats})
     
     return {
-        "success": True,
-        "message": f"Broadcast complete. Dispatched {stats['emails_dispatched']} emails to eligible candidates.",
+        "success": stats.get("success", True),
+        "message": stats.get("message", "Job broadcast processed."),
         "stats": stats
+    }
+
+@router.get("/jobs/{job_id}/broadcast-status")
+def get_job_broadcast_status(
+    job_id: str,
+    current_user: dict = Depends(get_current_recruiter),
+    db: MongoDatabase = Depends(get_db)
+):
+    """
+    View email delivery status and audit trail for a specific job broadcast.
+    """
+    user_id_str = str(current_user["_id"])
+    try:
+        obj_id = ObjectId(job_id)
+        job = db.jobs.find_one({"_id": obj_id, "recruiter_id": user_id_str})
+    except Exception:
+        job = db.jobs.find_one({"_id": job_id, "recruiter_id": user_id_str})
+
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found or unauthorized")
+
+    job_id_str = str(job["_id"])
+    logs = list(db.mail_logs.find({"$or": [{"job_id": job_id_str}, {"jobId": job_id_str}]}).sort("sent_at", -1))
+    
+    sent_count = sum(1 for l in logs if l.get("status") == "sent")
+    failed_count = sum(1 for l in logs if l.get("status") == "failed")
+    
+    formatted_logs = []
+    for l in logs:
+        formatted_logs.append({
+            "id": str(l.get("_id", "")),
+            "student_name": l.get("student_name") or l.get("studentName"),
+            "student_email": l.get("student_email") or l.get("studentEmail"),
+            "status": l.get("status"),
+            "sent_at": l.get("sent_at"),
+            "dispatch_id": l.get("dispatch_id", ""),
+            "error_message": l.get("error_message", "")
+        })
+
+    return {
+        "success": True,
+        "job_id": job_id_str,
+        "job_title": job.get("title"),
+        "total_emails_recorded": len(logs),
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+        "logs": formatted_logs
     }
 
 # ── 6. Applicants & Candidate Detail Drawer Routes ──
@@ -829,11 +927,22 @@ def update_applicant_status(
 @router.get("/interviews")
 def get_recruiter_interviews(current_user: dict = Depends(get_current_recruiter), db: MongoDatabase = Depends(get_db)):
     user_id_str = str(current_user["_id"])
-    interviews_cursor = db.recruiter_interviews.find({"recruiter_id": user_id_str}).sort("created_at", -1)
     
+    # Query both interviews and recruiter_interviews for complete coverage
+    ivs_primary = list(db.interviews.find({"recruiter_id": user_id_str}).sort("created_at", -1))
+    ivs_legacy = list(db.recruiter_interviews.find({"recruiter_id": user_id_str}).sort("created_at", -1))
+    
+    seen_ids = set()
+    combined_ivs = []
+    for iv in ivs_primary + ivs_legacy:
+        iv_id = str(iv["_id"])
+        if iv_id not in seen_ids:
+            seen_ids.add(iv_id)
+            combined_ivs.append(iv)
+
     result = []
-    for iv in interviews_cursor:
-        st_id = iv.get("student_id")
+    for iv in combined_ivs:
+        st_id = iv.get("student_id") or iv.get("user_id")
         try:
             st_user = db.users.find_one({"_id": ObjectId(st_id)})
         except Exception:
@@ -847,7 +956,8 @@ def get_recruiter_interviews(current_user: dict = Depends(get_current_recruiter)
             job = db.jobs.find_one({"_id": iv.get("job_id")}) or {}
 
         iv["id"] = str(iv["_id"])
-        del iv["_id"]
+        if "_id" in iv:
+            del iv["_id"]
         iv["student_name"] = st_prof.get("full_name") or (st_user.get("name") if st_user else "Candidate")
         iv["job_title"] = job.get("title") or "Role"
         result.append(iv)
@@ -864,12 +974,27 @@ def schedule_recruiter_interview(
     
     iv_dict = data.model_dump()
     iv_dict["recruiter_id"] = user_id_str
+    iv_dict["user_id"] = data.student_id  # student user reference for cross-role queries
+    iv_dict["interview_type"] = "Technical" if "tech" in (data.round or "").lower() else "Recruiter Round"
     iv_dict["status"] = "Scheduled"
     iv_dict["created_at"] = datetime.now(timezone.utc)
     iv_dict["updated_at"] = datetime.now(timezone.utc)
 
-    res = db.recruiter_interviews.insert_one(iv_dict)
-    iv_dict["id"] = str(res.inserted_id)
+    # Insert into canonical interviews collection
+    res = db.interviews.insert_one(dict(iv_dict))
+    iv_id_str = str(res.inserted_id)
+
+    # Also mirror into recruiter_interviews for legacy compatibility
+    try:
+        db.recruiter_interviews.update_one(
+            {"_id": res.inserted_id},
+            {"$set": dict(iv_dict)},
+            upsert=True
+        )
+    except Exception:
+        pass
+
+    iv_dict["id"] = iv_id_str
     if "_id" in iv_dict:
         del iv_dict["_id"]
 
@@ -879,7 +1004,7 @@ def schedule_recruiter_interview(
         db.applications.update_one({"_id": data.application_id}, {"$set": {"status": "interview_scheduled"}})
 
     log_recruiter_activity(db, user_id_str, "INTERVIEW_SCHEDULED", {
-        "interview_id": iv_dict["id"],
+        "interview_id": iv_id_str,
         "student_id": data.student_id,
         "round": data.round
     })
@@ -894,11 +1019,17 @@ def update_recruiter_interview(
     db: MongoDatabase = Depends(get_db)
 ):
     user_id_str = str(current_user["_id"])
+    
+    # Check in both collections
+    obj_id = None
     try:
         obj_id = ObjectId(interview_id)
-        iv = db.recruiter_interviews.find_one({"_id": obj_id, "recruiter_id": user_id_str})
     except Exception:
-        iv = db.recruiter_interviews.find_one({"_id": interview_id, "recruiter_id": user_id_str})
+        pass
+
+    query_id = {"$in": [interview_id, obj_id]} if obj_id else interview_id
+    iv = db.interviews.find_one({"_id": query_id, "recruiter_id": user_id_str}) or \
+         db.recruiter_interviews.find_one({"_id": query_id, "recruiter_id": user_id_str})
 
     if not iv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interview not found")
@@ -906,7 +1037,10 @@ def update_recruiter_interview(
     upd = {k: v for k, v in data.model_dump().items() if v is not None}
     upd["updated_at"] = datetime.now(timezone.utc)
 
-    db.recruiter_interviews.update_one({"_id": iv["_id"]}, {"$set": upd})
+    # Update in both collections
+    db.interviews.update_many({"_id": iv["_id"]}, {"$set": upd})
+    db.recruiter_interviews.update_many({"_id": iv["_id"]}, {"$set": upd})
+
     log_recruiter_activity(db, user_id_str, "INTERVIEW_UPDATED", {"interview_id": interview_id, "status": data.status})
 
     return {"success": True, "message": "Interview details updated."}
