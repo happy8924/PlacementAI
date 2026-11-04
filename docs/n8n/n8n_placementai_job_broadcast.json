@@ -1,0 +1,449 @@
+{
+  "name": "PlacementAI - Recruiter Job Broadcast (Webhook Integrated)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "placementai-job-broadcast",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "a1100001-0001-4000-8000-000000000001",
+      "name": "PlacementAI Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        450
+      ],
+      "webhookId": "placementai-job-broadcast"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract payload from Webhook input (handles both direct body and wrapped body)\nconst raw = $input.first().json;\nconst data = raw.body ? raw.body : raw;\n\nconst errors = [];\nif (!data.job) errors.push('Missing job object in payload');\nif (!data.dispatch_id) errors.push('Missing dispatch_id in payload');\n\nconst recipients = Array.isArray(data.recipients) ? data.recipients : [];\nconst job = data.job || {};\nconst dispatchId = data.dispatch_id || '';\n\nreturn [{\n  json: {\n    isValid: errors.length === 0,\n    errors,\n    job,\n    recipients,\n    recipientCount: recipients.length,\n    dispatchId\n  }\n}];"
+      },
+      "id": "a1100001-0001-4000-8000-000000000002",
+      "name": "Validate Webhook Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1100001-0001-4000-8000-000000000003",
+      "name": "Is Payload Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -80,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errs = $input.first().json.errors || ['Invalid payload structure'];\nreturn [{\n  json: {\n    success: false,\n    status: 'error',\n    message: 'Webhook payload validation failed',\n    errors: errs\n  }\n}];"
+      },
+      "id": "a1100001-0001-4000-8000-000000000004",
+      "name": "Return Payload Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        650
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "has_recipients",
+              "leftValue": "={{ $json.recipientCount }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1100001-0001-4000-8000-000000000005",
+      "name": "Has Eligible Recipients?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        120,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn [{\n  json: {\n    success: true,\n    status: 'no_match',\n    dispatch_id: data.dispatchId,\n    jobId: data.job.jobId || data.job.job_id,\n    message: 'No eligible candidates found for this job broadcast.'\n  }\n}];"
+      },
+      "id": "a1100001-0001-4000-8000-000000000006",
+      "name": "No Eligible Students",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        350,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst job = data.job || {};\nconst jobId = job.jobId || job.job_id || '';\nconst dispatchId = data.dispatchId || '';\nconst recipients = data.recipients || [];\n\nreturn recipients.map((r) => ({\n  json: {\n    dispatchId,\n    jobId,\n    studentId: r.studentId || r.student_id,\n    studentName: r.studentName || r.student_name || 'Candidate',\n    studentEmail: r.studentEmail || r.student_email,\n    matchScore: r.matchScore || r.match_score || 100,\n    matchedSkills: r.matchedSkills || r.matched_skills || [],\n    job\n  }\n}));"
+      },
+      "id": "a1100001-0001-4000-8000-000000000007",
+      "name": "Unpack Recipients Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        350,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a1100001-0001-4000-8000-000000000008",
+      "name": "For Each Eligible Student",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        580,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nconst job = d.job || {};\nconst esc = (v) => String(v == null ? '' : v)\n  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst list = (arr) => Array.isArray(arr) && arr.length ? arr.map(esc).join(', ') : '—';\n\nconst subject = 'New Job Opportunity: ' + esc(job.jobTitle) + ' at ' + esc(job.companyName);\n\nconst html = `<!DOCTYPE html>\n<html>\n<head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head>\n<body style=\"margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">\n  <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f5f7;padding:24px 0;\">\n    <tr><td align=\"center\">\n      <table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);\">\n        <tr><td style=\"background:#0b5fff;padding:24px;color:#ffffff;\">\n          <h1 style=\"margin:0;font-size:20px;\">${esc(job.jobTitle)}</h1>\n          <p style=\"margin:6px 0 0;font-size:14px;opacity:.9;\">${esc(job.companyName)}</p>\n        </td></tr>\n        <tr><td style=\"padding:24px;\">\n          <p style=\"margin:0 0 16px;font-size:15px;\">Hello ${esc(d.studentName)},</p>\n          <p style=\"margin:0 0 20px;font-size:14px;line-height:1.5;\">A new job opportunity has been posted that matches your profile.</p>\n          <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;line-height:1.6;\">\n            <tr><td style=\"padding:4px 0;width:170px;color:#666;\">Role</td><td style=\"padding:4px 0;\"><strong>${esc(job.role)}</strong></td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Department</td><td style=\"padding:4px 0;\">${esc(job.department) || '—'}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Employment Type</td><td style=\"padding:4px 0;\">${esc(job.employmentType)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Location</td><td style=\"padding:4px 0;\">${esc(job.location)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Work Mode</td><td style=\"padding:4px 0;\">${esc(job.workMode)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Salary / Stipend</td><td style=\"padding:4px 0;\">${esc(job.salaryOrStipend) || '—'}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Experience</td><td style=\"padding:4px 0;\">${esc(job.experienceRequired) || '—'}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Minimum CGPA</td><td style=\"padding:4px 0;\">${esc(job.minimumCGPA)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Required Skills</td><td style=\"padding:4px 0;\">${list(job.requiredSkills)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Application Deadline</td><td style=\"padding:4px 0;\">${esc(job.applicationDeadline) || '—'}</td></tr>\n          </table>\n          <div style=\"margin:20px 0;padding:16px;background:#f8f9fb;border-radius:6px;font-size:14px;line-height:1.6;\">\n            <strong>Job Description</strong><br>${esc(job.jobDescription)}\n          </div>\n          <div style=\"margin:0 0 20px;font-size:14px;line-height:1.6;\">\n            <strong>Selection Process</strong><br>${list(job.selectionProcess)}\n          </div>\n          <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"border-radius:6px;background:#0b5fff;\">\n            <a href=\"${esc(job.applyLink)}\" style=\"display:inline-block;padding:12px 28px;font-size:15px;color:#ffffff;text-decoration:none;font-weight:bold;\">Apply Now</a>\n          </td></tr></table>\n          <p style=\"margin:16px 0 0;font-size:13px;color:#666;\">Apply link: <a href=\"${esc(job.applyLink)}\" style=\"color:#0b5fff;\">${esc(job.applyLink)}</a></p>\n        </td></tr>\n        <tr><td style=\"padding:20px 24px;background:#f8f9fb;font-size:13px;color:#666;\">\n          Regards,<br><strong>${esc(job.companyName)}</strong><br>Recruitment Team\n        </td></tr>\n      </table>\n    </td></tr>\n  </table>\n</body>\n</html>`;\n\nreturn { json: Object.assign({}, d, { emailSubject: subject, emailHtml: html }) };"
+      },
+      "id": "a1100001-0001-4000-8000-000000000009",
+      "name": "Build Email HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        550
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.studentEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "message": "={{ $json.emailHtml }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "a1100001-0001-4000-8000-000000000010",
+      "name": "Send Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1000,
+        450
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "BCGZ45OPYYDOL3Rp",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $('Build Email HTML').item.json;\nreturn { json: {\n  jobId: d.jobId,\n  job_id: d.jobId,\n  studentId: d.studentId,\n  student_id: d.studentId,\n  studentName: d.studentName,\n  studentEmail: d.studentEmail,\n  companyName: (d.job && d.job.companyName) || '',\n  jobTitle: (d.job && d.job.jobTitle) || '',\n  dispatchId: d.dispatchId || '',\n  sentAt: new Date().toISOString(),\n  status: 'sent',\n  errorMessage: ''\n} };"
+      },
+      "id": "a1100001-0001-4000-8000-000000000011",
+      "name": "Prepare Sent Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "mail_logs",
+        "fields": "jobId,job_id,studentId,student_id,studentName,studentEmail,companyName,jobTitle,dispatchId,sentAt,status,errorMessage",
+        "options": {
+          "dateFields": "sentAt"
+        }
+      },
+      "id": "a1100001-0001-4000-8000-000000000012",
+      "name": "Save Mail Log",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.4,
+      "position": [
+        1440,
+        350
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "dRrnl8KfhVxf8vAQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $('Build Email HTML').item.json;\nconst err = ($json && $json.error) ? ($json.error.message || JSON.stringify($json.error)) : 'Email send failed';\nreturn { json: {\n  jobId: d.jobId,\n  job_id: d.jobId,\n  studentId: d.studentId,\n  student_id: d.studentId,\n  studentName: d.studentName,\n  studentEmail: d.studentEmail,\n  companyName: (d.job && d.job.companyName) || '',\n  jobTitle: (d.job && d.job.jobTitle) || '',\n  dispatchId: d.dispatchId || '',\n  sentAt: new Date().toISOString(),\n  status: 'failed',\n  errorMessage: String(err)\n} };"
+      },
+      "id": "a1100001-0001-4000-8000-000000000013",
+      "name": "Prepare Failed Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        550
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "mail_logs",
+        "fields": "jobId,job_id,studentId,student_id,studentName,studentEmail,companyName,jobTitle,dispatchId,sentAt,status,errorMessage",
+        "options": {
+          "dateFields": "sentAt"
+        }
+      },
+      "id": "a1100001-0001-4000-8000-000000000014",
+      "name": "Save Mail Log (Failed)",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.4,
+      "position": [
+        1440,
+        550
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "dRrnl8KfhVxf8vAQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const batchInfo = $('For Each Eligible Student').first().json;\nreturn [{\n  json: {\n    success: true,\n    status: 'completed',\n    message: 'Job broadcast execution finished. Emails processed and logged in MongoDB mail_logs.'\n  }\n}];"
+      },
+      "id": "a1100001-0001-4000-8000-000000000015",
+      "name": "Broadcast Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        250
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "PlacementAI Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Webhook Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Webhook Payload": {
+      "main": [
+        [
+          {
+            "node": "Is Payload Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Payload Valid?": {
+      "main": [
+        [
+          {
+            "node": "Has Eligible Recipients?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Payload Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Eligible Recipients?": {
+      "main": [
+        [
+          {
+            "node": "Unpack Recipients Queue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Eligible Students",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unpack Recipients Queue": {
+      "main": [
+        [
+          {
+            "node": "For Each Eligible Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "For Each Eligible Student": {
+      "main": [
+        [
+          {
+            "node": "Broadcast Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Email HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sent Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Failed Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sent Log": {
+      "main": [
+        [
+          {
+            "node": "Save Mail Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Mail Log": {
+      "main": [
+        [
+          {
+            "node": "For Each Eligible Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Failed Log": {
+      "main": [
+        [
+          {
+            "node": "Save Mail Log (Failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Mail Log (Failed)": {
+      "main": [
+        [
+          {
+            "node": "For Each Eligible Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

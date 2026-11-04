@@ -97,6 +97,14 @@ class Database:
                 cls.db.bookmarks.create_index([("user_id", 1), ("job_id", 1)], unique=True)
                 cls.db.bookmarks.create_index("user_id")
 
+                # 16. mail_logs collection indexes
+                cls.db.mail_logs.create_index([("job_id", 1), ("student_id", 1)])
+                cls.db.mail_logs.create_index("status")
+                cls.db.mail_logs.create_index("dispatch_id")
+
+                # 17. recruiter_profiles collection indexes
+                cls.db.recruiter_profiles.create_index("user_id", unique=True)
+
                 logger.info("Successfully initialized MongoDB collection indexes.")
             except Exception as e:
                 logger.error(f"Failed to initialize database indexes: {e}")

@@ -125,7 +125,7 @@ def get_admin_dashboard(
     active_users = db.users.count_documents({"is_active": {"$ne": False}})
     pending_approvals = db.users.count_documents({"is_approved": False})
 
-    total_companies = db.companies.count_documents({})
+    total_companies = db.companies.count_documents({}) or db.recruiter_profiles.count_documents({})
     total_jobs = db.jobs.count_documents({})
     active_jobs = db.jobs.count_documents({"status": "active"})
     total_applications = db.applications.count_documents({})
@@ -262,7 +262,9 @@ def get_user_detail(
         resumes = [serialize_doc(r) for r in res_list]
 
     elif user.get("role") == "recruiter":
-        comps = db.companies.find({"recruiter_id": user["_id"]})
+        comps = list(db.companies.find({"recruiter_id": {"$in": [user["_id"], user_id_str]}}))
+        if not comps:
+            comps = list(db.recruiter_profiles.find({"user_id": {"$in": [user["_id"], user_id_str]}}))
         companies = [serialize_doc(c) for c in comps]
 
         j_list = db.jobs.find({"recruiter_id": user["_id"]})

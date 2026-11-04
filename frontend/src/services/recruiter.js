@@ -79,3 +79,9 @@ export const updateRecruiterInterview = async (interviewId, interviewData) => {
   const response = await api.patch(`/recruiter/interviews/${interviewId}`, interviewData);
   return response.data;
 };
+
+
+export const previewJobEligibility = async (jobCriteria) => {
+  const response = await api.post('/recruiter/jobs/preview-eligibility', jobCriteria);
+  return response.data;
+};

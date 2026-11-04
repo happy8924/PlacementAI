@@ -1,0 +1,792 @@
+{
+  "name": "Email Automation - Recruiter Job Broadcast",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Post a Job Opening",
+        "formDescription": "Submit a job posting. Matching students will be notified automatically. For skills / branches, enter comma-separated values (e.g. Python, Flask, SQL).",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Recruiter Name",
+              "fieldName": "recruiterName",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Work / Official Email",
+              "fieldType": "email",
+              "fieldName": "officialEmail",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Phone",
+              "fieldName": "phone"
+            },
+            {
+              "fieldLabel": "Designation",
+              "fieldName": "designation"
+            },
+            {
+              "fieldLabel": "Company Name",
+              "fieldName": "companyName",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Company Website",
+              "fieldName": "companyWebsite"
+            },
+            {
+              "fieldLabel": "Company Careers URL",
+              "fieldName": "careersUrl"
+            },
+            {
+              "fieldLabel": "Company LinkedIn",
+              "fieldName": "companyLinkedIn"
+            },
+            {
+              "fieldLabel": "Company Description",
+              "fieldType": "textarea",
+              "fieldName": "companyDescription"
+            },
+            {
+              "fieldLabel": "Job Title",
+              "fieldName": "jobTitle",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Role",
+              "fieldName": "role",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Department",
+              "fieldName": "department"
+            },
+            {
+              "fieldLabel": "Employment Type",
+              "fieldType": "dropdown",
+              "fieldName": "employmentType",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Full-time"
+                  },
+                  {
+                    "option": "Part-time"
+                  },
+                  {
+                    "option": "Internship"
+                  },
+                  {
+                    "option": "Contract"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Number of Openings",
+              "fieldType": "number",
+              "fieldName": "numberOfOpenings"
+            },
+            {
+              "fieldLabel": "Location",
+              "fieldName": "location",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Work Mode",
+              "fieldType": "dropdown",
+              "fieldName": "workMode",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Onsite"
+                  },
+                  {
+                    "option": "Remote"
+                  },
+                  {
+                    "option": "Hybrid"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Salary / Stipend",
+              "fieldName": "salaryOrStipend"
+            },
+            {
+              "fieldLabel": "Experience Required",
+              "fieldName": "experienceRequired"
+            },
+            {
+              "fieldLabel": "Minimum CGPA",
+              "fieldType": "number",
+              "fieldName": "minimumCGPA",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Eligible Branches (comma-separated)",
+              "fieldName": "eligibleBranches",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Required Skills (comma-separated)",
+              "fieldName": "requiredSkills",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Preferred Skills (comma-separated)",
+              "fieldName": "preferredSkills"
+            },
+            {
+              "fieldLabel": "Job Description",
+              "fieldType": "textarea",
+              "fieldName": "jobDescription",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Responsibilities (comma-separated)",
+              "fieldType": "textarea",
+              "fieldName": "responsibilities"
+            },
+            {
+              "fieldLabel": "Selection Process (comma-separated)",
+              "fieldType": "textarea",
+              "fieldName": "selectionProcess"
+            },
+            {
+              "fieldLabel": "Application Deadline",
+              "fieldType": "date",
+              "fieldName": "applicationDeadline"
+            },
+            {
+              "fieldLabel": "Joining Date",
+              "fieldType": "date",
+              "fieldName": "joiningDate"
+            },
+            {
+              "fieldLabel": "Apply Link",
+              "fieldName": "applyLink",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "HR Contact Email",
+              "fieldType": "email",
+              "fieldName": "hrContactEmail"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "buttonLabel": "Post Job",
+          "path": "recruiter-job",
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Thank you. Your job has been posted and eligible students are being notified."
+            }
+          }
+        }
+      },
+      "id": "6480ccfc-f233-4e80-a945-88bd63af696a",
+      "name": "Recruiter Job Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -624,
+        496
+      ],
+      "webhookId": "ee7741da-f95e-49d8-9bab-76e342173252"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read the raw form submission (flat field map).\nconst f = $input.first().json;\n\nconst errors = [];\nconst str = (v) => (v === undefined || v === null) ? '' : String(v).trim();\nconst toList = (v) => str(v).split(',').map(s => s.trim()).filter(Boolean);\n\n// ---- Required text fields ----\nconst required = ['recruiterName','officialEmail','companyName','jobTitle','role','employmentType','location','workMode','minimumCGPA','eligibleBranches','requiredSkills','jobDescription','applyLink'];\nfor (const key of required) {\n  if (!str(f[key])) errors.push('Missing required field: ' + key);\n}\n\n// ---- Format validations ----\nconst emailRe = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (str(f.officialEmail) && !emailRe.test(str(f.officialEmail))) errors.push('officialEmail is not a valid email');\nif (str(f.hrContactEmail) && !emailRe.test(str(f.hrContactEmail))) errors.push('hrContactEmail is not a valid email');\n\nconst cgpa = Number(f.minimumCGPA);\nif (str(f.minimumCGPA) && Number.isNaN(cgpa)) errors.push('minimumCGPA must be numeric');\n\nlet openings = null;\nif (str(f.numberOfOpenings)) {\n  openings = Number(f.numberOfOpenings);\n  if (Number.isNaN(openings)) errors.push('numberOfOpenings must be numeric');\n}\n\nif (str(f.applicationDeadline) && Number.isNaN(Date.parse(str(f.applicationDeadline)))) {\n  errors.push('applicationDeadline is not a valid date');\n}\n\nconst urlRe = /^https?:\\/\\/.+/i;\nif (str(f.applyLink) && !urlRe.test(str(f.applyLink))) errors.push('applyLink must be a valid URL (http/https)');\n\n// ---- Build normalized job object ----\nconst jobId = 'JOB-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();\nconst nowIso = new Date().toISOString();\n\nconst job = {\n  jobId,\n  jobTitle: str(f.jobTitle),\n  role: str(f.role),\n  department: str(f.department),\n  companyName: str(f.companyName),\n  recruiterName: str(f.recruiterName),\n  recruiterEmail: str(f.officialEmail),\n  employmentType: str(f.employmentType),\n  numberOfOpenings: openings,\n  location: str(f.location),\n  workMode: str(f.workMode),\n  salaryOrStipend: str(f.salaryOrStipend),\n  experienceRequired: str(f.experienceRequired),\n  minimumCGPA: Number.isNaN(cgpa) ? 0 : cgpa,\n  eligibleBranches: toList(f.eligibleBranches),\n  requiredSkills: toList(f.requiredSkills),\n  preferredSkills: toList(f.preferredSkills),\n  jobDescription: str(f.jobDescription),\n  responsibilities: toList(f.responsibilities),\n  selectionProcess: toList(f.selectionProcess),\n  applicationDeadline: str(f.applicationDeadline),\n  joiningDate: str(f.joiningDate),\n  applyLink: str(f.applyLink),\n  hrContactEmail: str(f.hrContactEmail),\n  createdAt: nowIso,\n};\n\nconst recruiter = {\n  recruiterName: str(f.recruiterName),\n  officialEmail: str(f.officialEmail),\n  phone: str(f.phone),\n  designation: str(f.designation),\n  companyName: str(f.companyName),\n  companyWebsite: str(f.companyWebsite),\n  careersUrl: str(f.careersUrl),\n  companyLinkedIn: str(f.companyLinkedIn),\n  companyDescription: str(f.companyDescription),\n  createdAt: nowIso,\n};\n\nreturn [{ json: { isValid: errors.length === 0, errors, job, recruiter } }];"
+      },
+      "id": "ca2fd7bf-fc26-4c90-9caf-20684d7251ea",
+      "name": "Validate & Normalize Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "45b7d9b9-14dc-449d-b54d-3d215ad5e6fb",
+      "name": "Is Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Emit only the recruiter sub-document for the insert node.\nreturn [{ json: $input.first().json.recruiter }];"
+      },
+      "id": "2e073e5e-ea35-4297-b0fb-3e24922efe88",
+      "name": "Prepare Recruiter Doc",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "recruiters",
+        "fields": "recruiterName,officialEmail,phone,designation,companyName,companyWebsite,careersUrl,companyLinkedIn,companyDescription,createdAt",
+        "options": {
+          "dateFields": "createdAt"
+        }
+      },
+      "id": "afb968c6-3070-4bb3-80e3-bf30e7146d4e",
+      "name": "Save Recruiter",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.4,
+      "position": [
+        160,
+        320
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "dRrnl8KfhVxf8vAQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pull the normalized job from the validation node (survives the recruiter insert).\nreturn [{ json: $('Validate & Normalize Job').first().json.job }];"
+      },
+      "id": "6c3ee1d8-39e0-40a7-8fd6-c6b6420ba605",
+      "name": "Prepare Job Doc",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "jobs",
+        "fields": "jobId,jobTitle,role,department,companyName,recruiterName,recruiterEmail,employmentType,numberOfOpenings,location,workMode,salaryOrStipend,experienceRequired,minimumCGPA,eligibleBranches,requiredSkills,preferredSkills,jobDescription,responsibilities,selectionProcess,applicationDeadline,joiningDate,applyLink,hrContactEmail,createdAt",
+        "options": {
+          "dateFields": "createdAt"
+        }
+      },
+      "id": "d86ca39c-c492-4eb8-9f3c-2a5a9cc9d4cb",
+      "name": "Save Job",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.4,
+      "position": [
+        496,
+        464
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "dRrnl8KfhVxf8vAQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collection": "students",
+        "options": {},
+        "query": "{ \"status\": \"active\" }"
+      },
+      "id": "b0965b11-212a-4fd4-9f80-c000a4db473e",
+      "name": "Find Active Students",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        528
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "dRrnl8KfhVxf8vAQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────── CONFIG (easy to change later) ───────────\nconst SKILL_MATCH_THRESHOLD = 50; // % of required skills a student must have\nconst OVERALL_SCORE_THRESHOLD = 60; // % overall weighted score to be eligible\nconst WEIGHTS = { cgpa: 20, branch: 20, role: 20, skills: 30, location: 10 };\n\n// ─────────── Helpers ───────────\nconst norm = (s) => String(s == null ? '' : s).trim().toLowerCase();\nconst asArray = (v) => Array.isArray(v) ? v : (v == null ? [] : String(v).split(',').map(x => x.trim()).filter(Boolean));\n\n// ─────────── Job (single object) ───────────\nconst job = $('Validate & Normalize Job').first().json.job;\nconst jobId = $('Save Job').first().json.jobId || job.jobId;\n\nconst reqSkills = asArray(job.requiredSkills);\nconst reqSkillSet = reqSkills.map(norm);\nconst eligibleBranches = asArray(job.eligibleBranches).map(norm);\nconst jobRole = norm(job.role);\nconst jobTitle = norm(job.jobTitle);\nconst minCgpa = Number(job.minimumCGPA) || 0;\nconst jobLocations = asArray(job.location).map(norm); // location may be \"Ahmedabad / Remote\"\nconst splitLoc = jobLocations.flatMap(l => l.split('/').map(x => x.trim()).filter(Boolean));\nconst workMode = norm(job.workMode);\n\n// ─────────── Students (many items) ───────────\nconst students = $('Find Active Students').all().map(i => i.json).filter(s => s && s.email);\n\nconst results = [];\nfor (const s of students) {\n  const sSkills = asArray(s.skills);\n  const sSkillSet = sSkills.map(norm);\n  const sRoles = asArray(s.preferredRoles).map(norm);\n  const sLocations = asArray(s.preferredLocations).map(norm);\n  const sBranch = norm(s.branch);\n  const sDegree = norm(s.degree);\n  const sCgpa = Number(s.cgpa) || 0;\n\n  // 1) Status\n  const statusOk = norm(s.status) === 'active';\n\n  // 2) CGPA\n  const cgpaMatch = sCgpa >= minCgpa;\n\n  // 3) Branch — exact match against branch OR degree (case-insensitive)\n  const branchMatch = eligibleBranches.length === 0 ||\n    eligibleBranches.some(b => b === sBranch || b === sDegree ||\n      sBranch.includes(b) || b.includes(sBranch));\n\n  // 4) Role — student's preferred roles overlap job role/title (whole-token aware)\n  const roleMatch = sRoles.some(r => r === jobRole || r === jobTitle ||\n    r.includes(jobRole) || jobRole.includes(r));\n\n  // 5) Skills — exact token match, case-insensitive, no substring (Java != JavaScript)\n  const matchedSkills = reqSkills.filter((rs, idx) => sSkillSet.includes(reqSkillSet[idx]));\n  const missingSkills = reqSkills.filter((rs, idx) => !sSkillSet.includes(reqSkillSet[idx]));\n  const reqCount = reqSkills.length;\n  const matchedCount = matchedSkills.length;\n  const skillPct = reqCount === 0 ? 100 : Math.round((matchedCount / reqCount) * 100);\n  const skillMatch = skillPct >= SKILL_MATCH_THRESHOLD;\n\n  // 6) Location / work mode compatibility\n  let locationMatch = false;\n  if (workMode === 'remote') {\n    locationMatch = true; // remote work is location-agnostic\n  } else {\n    locationMatch = splitLoc.length === 0 ||\n      splitLoc.some(jl => jl === 'remote' || sLocations.includes(jl)) ||\n      sLocations.includes('remote');\n  }\n\n  // 7) Experience — permissive; freshers accepted unless job clearly needs seniority\n  const expReq = norm(job.experienceRequired);\n  const sExp = norm(s.experience);\n  let experienceMatch = true;\n  if (expReq && /(senior|3\\+|4\\+|5\\+|[3-9] years|[3-9]\\+ years)/.test(expReq)) {\n    experienceMatch = /(1-2|2-3|0-1|[1-9] years)/.test(sExp);\n  }\n\n  // ─────────── Weighted score ───────────\n  const score =\n    (cgpaMatch ? WEIGHTS.cgpa : 0) +\n    (branchMatch ? WEIGHTS.branch : 0) +\n    (roleMatch ? WEIGHTS.role : 0) +\n    Math.round((skillPct / 100) * WEIGHTS.skills) +\n    (locationMatch ? WEIGHTS.location : 0);\n\n  // Mandatory gates + thresholds\n  const mandatory = statusOk && cgpaMatch && branchMatch && experienceMatch;\n  const isEligible = mandatory && skillMatch && score >= OVERALL_SCORE_THRESHOLD;\n\n  if (isEligible) {\n    results.push({ json: {\n      // student identity\n      studentId: s._id || null,\n      studentName: s.fullName,\n      studentEmail: s.email,\n      // match diagnostics (internal)\n      isEligible,\n      matchScore: score,\n      skillMatchPercent: skillPct,\n      matchedSkills,\n      missingSkills,\n      cgpaMatch, branchMatch, roleMatch, locationMatch, experienceMatch,\n      // job context carried for the email + logging\n      job,\n      jobId,\n    } });\n  }\n}\n\n// If nobody matched, emit a single \"no match\" marker item so the workflow ends safely.\nif (results.length === 0) {\n  return [{ json: { isEligible: false, noMatch: true, job, jobId,\n    message: 'No eligible students found for this job.' } }];\n}\n\nreturn results;"
+      },
+      "id": "35d42835-0b2f-4c80-953a-41d3350668c6",
+      "name": "Match Students",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "eligible",
+              "leftValue": "={{ $json.isEligible }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c63677a7-92cd-47ea-8acb-e8881fdaba52",
+      "name": "Any Eligible Students?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1008,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  status: 'done',\n  message: 'Job posted and eligible students have been notified.',\n} }];"
+      },
+      "id": "d06417ac-21ce-4439-8525-98b383a21f72",
+      "name": "Broadcast Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nconst job = d.job || {};\nconst esc = (v) => String(v == null ? '' : v)\n  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst list = (arr) => Array.isArray(arr) && arr.length ? arr.map(esc).join(', ') : '—';\n\nconst subject = 'New Job Opportunity: ' + esc(job.jobTitle) + ' at ' + esc(job.companyName);\n\nconst html = `<!DOCTYPE html>\n<html>\n<head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head>\n<body style=\"margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">\n  <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f5f7;padding:24px 0;\">\n    <tr><td align=\"center\">\n      <table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);\">\n        <tr><td style=\"background:#0b5fff;padding:24px;color:#ffffff;\">\n          <h1 style=\"margin:0;font-size:20px;\">${esc(job.jobTitle)}</h1>\n          <p style=\"margin:6px 0 0;font-size:14px;opacity:.9;\">${esc(job.companyName)}</p>\n        </td></tr>\n        <tr><td style=\"padding:24px;\">\n          <p style=\"margin:0 0 16px;font-size:15px;\">Hello ${esc(d.studentName)},</p>\n          <p style=\"margin:0 0 20px;font-size:14px;line-height:1.5;\">A new job opportunity has been posted that matches your profile.</p>\n          <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;line-height:1.6;\">\n            <tr><td style=\"padding:4px 0;width:170px;color:#666;\">Role</td><td style=\"padding:4px 0;\"><strong>${esc(job.role)}</strong></td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Department</td><td style=\"padding:4px 0;\">${esc(job.department) || '—'}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Employment Type</td><td style=\"padding:4px 0;\">${esc(job.employmentType)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Location</td><td style=\"padding:4px 0;\">${esc(job.location)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Work Mode</td><td style=\"padding:4px 0;\">${esc(job.workMode)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Salary / Stipend</td><td style=\"padding:4px 0;\">${esc(job.salaryOrStipend) || '—'}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Experience</td><td style=\"padding:4px 0;\">${esc(job.experienceRequired) || '—'}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Minimum CGPA</td><td style=\"padding:4px 0;\">${esc(job.minimumCGPA)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Required Skills</td><td style=\"padding:4px 0;\">${list(job.requiredSkills)}</td></tr>\n            <tr><td style=\"padding:4px 0;color:#666;\">Application Deadline</td><td style=\"padding:4px 0;\">${esc(job.applicationDeadline) || '—'}</td></tr>\n          </table>\n          <div style=\"margin:20px 0;padding:16px;background:#f8f9fb;border-radius:6px;font-size:14px;line-height:1.6;\">\n            <strong>Job Description</strong><br>${esc(job.jobDescription)}\n          </div>\n          <div style=\"margin:0 0 20px;font-size:14px;line-height:1.6;\">\n            <strong>Selection Process</strong><br>${list(job.selectionProcess)}\n          </div>\n          <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"border-radius:6px;background:#0b5fff;\">\n            <a href=\"${esc(job.applyLink)}\" style=\"display:inline-block;padding:12px 28px;font-size:15px;color:#ffffff;text-decoration:none;font-weight:bold;\">Apply Now</a>\n          </td></tr></table>\n          <p style=\"margin:16px 0 0;font-size:13px;color:#666;\">Apply link: <a href=\"${esc(job.applyLink)}\" style=\"color:#0b5fff;\">${esc(job.applyLink)}</a></p>\n        </td></tr>\n        <tr><td style=\"padding:20px 24px;background:#f8f9fb;font-size:13px;color:#666;\">\n          Regards,<br><strong>${esc(job.companyName)}</strong><br>Recruitment Team\n        </td></tr>\n      </table>\n    </td></tr>\n  </table>\n</body>\n</html>`;\n\nreturn { json: Object.assign({}, d, { emailSubject: subject, emailHtml: html }) };"
+      },
+      "id": "d614c1d7-718a-4e07-8e4a-bfac1b6d1030",
+      "name": "Build Email HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.studentEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "message": "={{ $json.emailHtml }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "f8815666-4d9d-4abb-9ac8-e0679bb95b64",
+      "name": "Send Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1648,
+        576
+      ],
+      "webhookId": "8af41258-2e91-469a-a41e-24aacbece7ed",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "BCGZ45OPYYDOL3Rp",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $('Build Email HTML').item.json;\nreturn { json: {\n  jobId: d.jobId,\n  studentId: d.studentId,\n  studentName: d.studentName,\n  studentEmail: d.studentEmail,\n  companyName: (d.job && d.job.companyName) || '',\n  jobTitle: (d.job && d.job.jobTitle) || '',\n  sentAt: new Date().toISOString(),\n  status: 'sent',\n  errorMessage: '',\n} };"
+      },
+      "id": "3662d4ae-1ca6-42c8-acf5-b5df6c7c76f8",
+      "name": "Prepare Sent Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "mail_logs",
+        "fields": "jobId,studentId,studentName,studentEmail,companyName,jobTitle,sentAt,status,errorMessage",
+        "options": {
+          "dateFields": "sentAt"
+        }
+      },
+      "id": "4dbea7db-c091-4ee3-8469-a698bf8418f0",
+      "name": "Save Mail Log",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.4,
+      "position": [
+        2000,
+        304
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "dRrnl8KfhVxf8vAQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "20d032e2-5913-4548-a414-c8a4a6bc6e25",
+      "name": "For Each Eligible Student",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1248,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $('Build Email HTML').item.json;\nconst err = ($json && $json.error) ? ($json.error.message || JSON.stringify($json.error)) : 'Email send failed';\nreturn { json: {\n  jobId: d.jobId,\n  studentId: d.studentId,\n  studentName: d.studentName,\n  studentEmail: d.studentEmail,\n  companyName: (d.job && d.job.companyName) || '',\n  jobTitle: (d.job && d.job.jobTitle) || '',\n  sentAt: new Date().toISOString(),\n  status: 'failed',\n  errorMessage: String(err),\n} };"
+      },
+      "id": "bee31d00-7c38-4fbe-994d-c2929245133a",
+      "name": "Prepare Failed Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "mail_logs",
+        "fields": "jobId,studentId,studentName,studentEmail,companyName,jobTitle,sentAt,status,errorMessage",
+        "options": {
+          "dateFields": "sentAt"
+        }
+      },
+      "id": "e3426751-1d85-4565-9561-aedba8091dde",
+      "name": "Save Mail Log (Failed)",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.4,
+      "position": [
+        2016,
+        768
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "dRrnl8KfhVxf8vAQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  status: 'no_match',\n  message: 'No eligible students found for this job.',\n  jobId: $input.first().json.jobId,\n} }];"
+      },
+      "id": "e3294d0a-038d-4f72-b8d6-7d2dee4bad33",
+      "name": "No Eligible Students",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errs = $input.first().json.errors || ['Invalid submission'];\nreturn [{ json: {\n  status: 'error',\n  message: 'Job was not posted. Please fix the following and resubmit:',\n  errors: errs,\n} }];"
+      },
+      "id": "a3ef3844-0762-4d8e-88e3-0e69bb123bd0",
+      "name": "Return Validation Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        624
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Recruiter Job Form": {
+      "main": [
+        [
+          {
+            "node": "Validate & Normalize Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Normalize Job": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Recruiter Doc",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Recruiter Doc": {
+      "main": [
+        [
+          {
+            "node": "Save Recruiter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Recruiter": {
+      "main": [
+        [
+          {
+            "node": "Prepare Job Doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Job Doc": {
+      "main": [
+        [
+          {
+            "node": "Save Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Job": {
+      "main": [
+        [
+          {
+            "node": "Find Active Students",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Active Students": {
+      "main": [
+        [
+          {
+            "node": "Match Students",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Students": {
+      "main": [
+        [
+          {
+            "node": "Any Eligible Students?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Eligible Students?": {
+      "main": [
+        [
+          {
+            "node": "For Each Eligible Student",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Eligible Students",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sent Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Failed Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sent Log": {
+      "main": [
+        [
+          {
+            "node": "Save Mail Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Mail Log": {
+      "main": [
+        [
+          {
+            "node": "For Each Eligible Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "For Each Eligible Student": {
+      "main": [
+        [
+          {
+            "node": "Broadcast Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Email HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Failed Log": {
+      "main": [
+        [
+          {
+            "node": "Save Mail Log (Failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Mail Log (Failed)": {
+      "main": [
+        [
+          {
+            "node": "For Each Eligible Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "62b8a052-1a6c-45dd-9820-2a32e8335bc5",
+  "meta": {
+    "instanceId": "3c84d57cea805bb6bd682875f73f9fa45da5bc7fa0aae67e61542ef5730fed12"
+  },
+  "nodeGroups": [],
+  "id": "C7qA9nvjhUlQJRdf",
+  "tags": []
+}

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # OTP Config
     OTP_EXPIRY_MINUTES: int = Field(default=10)
 
+    # n8n Email Automation Webhook Config
+    N8N_WEBHOOK_URL: str = Field(default="")
+    N8N_TIMEOUT_SECONDS: int = Field(default=30)
+
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",

@@ -12,7 +12,7 @@ def evaluate_student_job_eligibility(
     1. Student account is approved (is_approved=True, approval_status='approved') and active.
     2. Student CGPA >= job min_cgpa (if min_cgpa > 0). Missing CGPA is treated as ineligible.
     3. Student Branch matches eligible_branches (if eligible_branches is specified).
-    4. Required Skills match: At least 50% of the job's required skills must match student's skills.
+    4. Required Skills match: At least 70% of the job's required skills must match student's skills.
        (If job specifies required skills and student has 0 matching skills, they are ineligible).
     
     Returns:
@@ -68,9 +68,9 @@ def evaluate_student_job_eligibility(
                 matched_skills.append(r_skill)
 
         skill_pct = (len(matched_skills) / len(req_skills)) * 100.0 if req_skills else 100.0
-        # Student must have at least 50% matching skills
-        if skill_pct < 50.0:
-            reasons.append(f"Technical skills match {skill_pct:.0f}% is below required 50% threshold ({len(matched_skills)}/{len(req_skills)} matched)")
+        # Student must have at least 70% matching skills
+        if skill_pct < 70.0:
+            reasons.append(f"Technical skills match {skill_pct:.0f}% is below required 70% threshold ({len(matched_skills)}/{len(req_skills)} matched)")
     else:
         skill_pct = 100.0
 
