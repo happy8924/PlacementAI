@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getStudentProfile } from '../services/student';
 import { Eye, EyeOff, Lock, Mail, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -14,6 +14,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // If user arrives on Login page (including via browser Back button), cleanly terminate active session
+  useEffect(() => {
+    if (localStorage.getItem('token') || isAuthenticated) {
+      logout();
+    }
+  }, [logout, isAuthenticated]);
 
   // Check if redirect path is saved, else default based on role
   const fromPath = location.state?.from?.pathname;
@@ -33,9 +40,9 @@ export default function LoginPage() {
       if (data.success) {
         // Successful login - determine redirect target
         if (fromPath) {
-          navigate(fromPath, { replace: true });
+          navigate(fromPath);
         } else {
-          // Redirect based on role
+          // Redirect based on role (normal push navigation so browser Back button returns to login & closes session)
           const role = data.user.role;
           if (role === 'student') {
             try {
@@ -43,12 +50,12 @@ export default function LoginPage() {
               const p = profData?.profile;
               const isComp = p && (p.profile_completed || (p.full_name && p.branch && p.graduation_year && p.cgpa && p.skills?.length > 0 && (p.links?.github || p.links?.linkedin)));
               if (isComp) {
-                navigate('/student/dashboard', { replace: true });
+                navigate('/student/dashboard');
               } else {
-                navigate('/student/resume', { replace: true });
+                navigate('/student/resume');
               }
             } catch {
-              navigate('/student/dashboard', { replace: true });
+              navigate('/student/dashboard');
             }
           }
           else if (role === 'recruiter') navigate('/recruiter/dashboard');
