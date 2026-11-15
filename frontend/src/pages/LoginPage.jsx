@@ -15,12 +15,13 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // If user arrives on Login page (including via browser Back button), cleanly terminate active session
+  // If user arrives on Login page (including via browser Back button), cleanly terminate active session once on initial mount
   useEffect(() => {
-    if (localStorage.getItem('token') || isAuthenticated) {
+    if (localStorage.getItem('token')) {
       logout();
     }
-  }, [logout, isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Check if redirect path is saved, else default based on role
   const fromPath = location.state?.from?.pathname;
