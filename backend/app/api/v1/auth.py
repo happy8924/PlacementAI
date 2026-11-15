@@ -279,10 +279,58 @@ def login(credentials: UserLogin, db: MongoDatabase = Depends(get_db)):
         # Case insensitive match for app_id
         user = db.users.find_one({"app_id": {"$regex": f"^{query}$", "$options": "i"}})
         
-    if not user or not verify_password(credentials.password, user["password_hash"]):
+    # 1. Check if account is blocked due to excessive failed attempts
+    if user and (user.get("is_blocked") or user.get("failed_login_attempts", 0) >= 5):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect ID or password."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been locked due to 5 consecutive failed login attempts. Only an Admin can unblock your account. Please contact your Placement Administrator."
+        )
+
+    # 2. Verify password with remaining attempt tracking
+    if not user or not verify_password(credentials.password, user["password_hash"]):
+        if user:
+            failed_attempts = user.get("failed_login_attempts", 0) + 1
+            max_attempts = 5
+            remaining = max(0, max_attempts - failed_attempts)
+
+            if failed_attempts >= max_attempts:
+                db.users.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {
+                        "failed_login_attempts": failed_attempts,
+                        "is_blocked": True,
+                        "blocked_reason": "Exceeded 5 failed login attempts",
+                        "blocked_at": datetime.now(timezone.utc)
+                    }}
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your account has been locked due to 5 consecutive failed login attempts. Only an Admin can unblock your account."
+                )
+            else:
+                db.users.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {"failed_login_attempts": failed_attempts}}
+                )
+                attempt_str = "attempt" if remaining == 1 else "attempts"
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=f"Incorrect ID or password. You have {remaining} {attempt_str} remaining before your account is blocked."
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect ID or password."
+            )
+
+    # 3. Successful login: Reset failed attempts counter if any
+    if user.get("failed_login_attempts", 0) > 0 or user.get("is_blocked"):
+        db.users.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {"failed_login_attempts": 0, "is_blocked": False},
+                "$unset": {"blocked_reason": "", "blocked_at": ""}
+            }
         )
 
     # Check approval status for students and recruiters
