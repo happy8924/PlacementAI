@@ -30,6 +30,45 @@ class Settings(BaseSettings):
     N8N_WEBHOOK_URL: str = Field(default="")
     N8N_TIMEOUT_SECONDS: int = Field(default=30)
 
+    # Rate Limiting Config
+    RATE_LIMIT_ENABLED: bool = Field(default=True)
+    RATE_LIMIT_DEFAULT_LIMIT: int = Field(default=100)
+    RATE_LIMIT_DEFAULT_WINDOW: int = Field(default=60)
+    RATE_LIMIT_UNAUTH_LIMIT: int = Field(default=30)
+    RATE_LIMIT_UNAUTH_WINDOW: int = Field(default=60)
+
+    # Endpoint Specific Protection Limits
+    RATE_LIMIT_LOGIN_LIMIT: int = Field(default=5)
+    RATE_LIMIT_LOGIN_WINDOW: int = Field(default=60)
+
+    RATE_LIMIT_REGISTER_LIMIT: int = Field(default=10)
+    RATE_LIMIT_REGISTER_WINDOW: int = Field(default=60)
+
+    RATE_LIMIT_OTP_GEN_LIMIT: int = Field(default=3)
+    RATE_LIMIT_OTP_GEN_WINDOW: int = Field(default=60)
+
+    RATE_LIMIT_OTP_VERIFY_LIMIT: int = Field(default=5)
+    RATE_LIMIT_OTP_VERIFY_WINDOW: int = Field(default=60)
+
+    RATE_LIMIT_FORGOT_PASSWORD_LIMIT: int = Field(default=3)
+    RATE_LIMIT_FORGOT_PASSWORD_WINDOW: int = Field(default=60)
+
+    RATE_LIMIT_RESET_PASSWORD_LIMIT: int = Field(default=5)
+    RATE_LIMIT_RESET_PASSWORD_WINDOW: int = Field(default=60)
+
+    RATE_LIMIT_RESUME_UPLOAD_LIMIT: int = Field(default=10)
+    RATE_LIMIT_RESUME_UPLOAD_WINDOW: int = Field(default=60)
+
+    RATE_LIMIT_AI_ANALYSIS_LIMIT: int = Field(default=5)
+    RATE_LIMIT_AI_ANALYSIS_WINDOW: int = Field(default=60)
+
+    RATE_LIMIT_AI_MOCK_INTERVIEW_LIMIT: int = Field(default=5)
+    RATE_LIMIT_AI_MOCK_INTERVIEW_WINDOW: int = Field(default=60)
+
+    # Trusted reverse proxies for client IP extraction
+    RATE_LIMIT_TRUSTED_PROXIES: str = Field(default="127.0.0.1,::1")
+    REDIS_URL: str = Field(default="")
+
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",

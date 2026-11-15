@@ -1,10 +1,35 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function RouteGuard({ children, allowedRoles, requireCompleteProfile = true }) {
-  const { isAuthenticated, user, loading, isProfileComplete, loadingProfile } = useAuth();
+  const { isAuthenticated, user, loading, isProfileComplete, loadingProfile, logout } = useAuth();
   const location = useLocation();
+
+  useEffect(() => {
+    // 1. Listen for browser back/forward navigation (popstate)
+    const handlePopState = () => {
+      const publicPaths = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/awaiting-approval'];
+      if (publicPaths.includes(window.location.pathname)) {
+        logout();
+      }
+    };
+
+    // 2. Prevent bfcache from displaying stale authenticated dashboard on forward navigation
+    const handlePageShow = (event) => {
+      if (event.persisted && !localStorage.getItem('token')) {
+        window.location.replace('/login');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [logout]);
 
   if (loading || (user?.role === 'student' && loadingProfile)) {
     return (
