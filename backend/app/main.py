@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import Database
+from app.core.rate_limit import RateLimitMiddleware
 from app.api.v1.auth import router as auth_router
 from app.api.v1.student import router as student_router
 from app.api.v1.admin import router as admin_router
@@ -46,6 +47,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Centralized API Rate Limiting Middleware
+app.add_middleware(RateLimitMiddleware)
+
 # Register API Routers
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin Module"])
@@ -63,5 +67,3 @@ def read_root():
         "service": "PlacementAI Core API",
         "status": "online"
     }
-
-
