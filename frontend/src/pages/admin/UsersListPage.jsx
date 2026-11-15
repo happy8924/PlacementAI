@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
-import { getUsersList, updateUserStatus, deleteUser } from '../../services/admin';
+import { getUsersList, updateUserStatus, unblockUser, deleteUser } from '../../services/admin';
 import {
   Users,
   Search,
@@ -17,7 +17,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 export default function UsersListPage({ initialRole = null, title = "User Governance" }) {
@@ -70,6 +72,23 @@ export default function UsersListPage({ initialRole = null, title = "User Govern
     e.preventDefault();
     setPage(1);
     fetchUsers(search);
+  };
+
+  const handleUnblock = async (userId, userName) => {
+    setActionLoading(userId);
+    setError('');
+    setSuccessMsg('');
+    try {
+      const res = await unblockUser(userId);
+      if (res.success) {
+        setSuccessMsg(`User '${userName || userId}' has been unblocked successfully.`);
+        fetchUsers();
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to unblock user account.');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleToggleStatus = async (userId, currentActive) => {
@@ -175,6 +194,7 @@ export default function UsersListPage({ initialRole = null, title = "User Govern
             >
               <option value="">All Statuses</option>
               <option value="active">Active Accounts</option>
+              <option value="blocked">⛔ Blocked Accounts</option>
               <option value="inactive">Inactive Accounts</option>
               <option value="pending">Pending Approval</option>
             </select>
@@ -222,7 +242,11 @@ export default function UsersListPage({ initialRole = null, title = "User Govern
                         </span>
                       </td>
                       <td className="py-3.5 px-4">
-                        {u.is_active !== false ? (
+                        {u.is_blocked ? (
+                          <span className="inline-flex items-center gap-1 text-rose-400 text-[10px] font-bold bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded">
+                            <Lock className="w-3 h-3" /> Blocked ({u.failed_login_attempts || 5} fails)
+                          </span>
+                        ) : u.is_active !== false ? (
                           <span className="inline-flex items-center gap-1 text-emerald-400 text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
                             <CheckCircle2 className="w-3 h-3" /> Active
                           </span>
@@ -242,6 +266,21 @@ export default function UsersListPage({ initialRole = null, title = "User Govern
                         >
                           <Eye className="w-3 h-3" /> View
                         </Link>
+
+                        {u.is_blocked && (
+                          <button
+                            onClick={() => handleUnblock(u.id, u.name)}
+                            disabled={actionLoading === u.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded font-mono text-[10px] font-bold border border-rose-500/40 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-colors"
+                            title="Unblock account and reset failed login attempts"
+                          >
+                            {actionLoading === u.id ? (
+                              <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                              <><Unlock className="w-3 h-3" /> Unblock</>
+                            )}
+                          </button>
+                        )}
 
                         <button
                           onClick={() => handleToggleStatus(u.id, u.is_active !== false)}
