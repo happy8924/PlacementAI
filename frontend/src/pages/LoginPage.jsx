@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getStudentProfile } from '../services/student';
-import { Eye, EyeOff, Lock, Mail, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ArrowLeft, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, logout, isAuthenticated } = useAuth();
@@ -104,9 +104,31 @@ export default function LoginPage() {
         {/* Card Form */}
         <div className="bg-card-bg border border-theme p-8 rounded-2xl shadow-2xl space-y-6">
           {error && (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-mono rounded-lg">
-              ✕ {error}
-            </div>
+            error.toLowerCase().includes('blocked') || error.toLowerCase().includes('locked') ? (
+              <div className="p-4 bg-red-500/15 border border-red-500/40 text-red-400 text-xs font-mono rounded-lg flex items-start gap-2.5">
+                <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold uppercase tracking-wider text-[11px] text-red-300">Account Access Locked</div>
+                  <div className="mt-1 text-secondary leading-relaxed">{error}</div>
+                  <div className="mt-2 text-[10px] font-bold text-red-400 uppercase tracking-widest">
+                    ⚠ Action Required: Contact Administrator to Unblock
+                  </div>
+                </div>
+              </div>
+            ) : error.toLowerCase().includes('remaining') ? (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono rounded-lg flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold uppercase tracking-wider text-[11px] text-amber-300">Login Attempt Warning</div>
+                  <div className="mt-1 text-primary/90 font-medium">{error}</div>
+                  <div className="mt-1.5 text-[10px] text-secondary">Account locks automatically after 5 failed attempts.</div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-mono rounded-lg">
+                ✕ {error}
+              </div>
+            )
           )}
 
           {location.search.includes('expired=true') && (
@@ -163,6 +185,10 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              <p className="text-[10px] text-secondary font-mono tracking-wide pt-1 flex items-center justify-between">
+                <span>// Max 5 attempts allowed</span>
+                <span className="text-amber-500/90 font-medium">Admin unblock required if locked</span>
+              </p>
             </div>
 
             {/* Submit Button */}
