@@ -20,6 +20,11 @@ export const updateUserStatus = async (userId, data) => {
   return response.data;
 };
 
+export const unblockUser = async (userId) => {
+  const response = await api.post(`/admin/users/${userId}/unblock`);
+  return response.data;
+};
+
 export const deleteUser = async (userId) => {
   const response = await api.delete(`/admin/users/${userId}`);
   return response.data;
