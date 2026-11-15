@@ -82,6 +82,7 @@ def get_current_admin_user(
 class UserStatusUpdateInput(BaseModel):
     is_active: Optional[bool] = None
     is_approved: Optional[bool] = None
+    is_blocked: Optional[bool] = None
     role: Optional[str] = None
 
 class SystemSettingsInput(BaseModel):
@@ -198,10 +199,13 @@ def list_users(
 
     if status_filter == "active":
         query["is_active"] = {"$ne": False}
+        query["is_blocked"] = {"$ne": True}
     elif status_filter == "inactive":
         query["is_active"] = False
     elif status_filter == "pending":
         query["is_approved"] = False
+    elif status_filter == "blocked":
+        query["is_blocked"] = True
 
     if search:
         query["$or"] = [
@@ -314,6 +318,11 @@ def update_user_status(
         update_fields["is_active"] = data.is_active
     if data.is_approved is not None:
         update_fields["is_approved"] = data.is_approved
+    if data.is_blocked is not None:
+        update_fields["is_blocked"] = data.is_blocked
+        if data.is_blocked is False:
+            update_fields["failed_login_attempts"] = 0
+            update_fields["blocked_reason"] = None
     if data.role and data.role in ["student", "recruiter", "tpo", "admin"]:
         update_fields["role"] = data.role
 
@@ -335,6 +344,50 @@ def update_user_status(
         "success": True,
         "message": "User status updated successfully",
         "user": serialize_doc(updated_user)
+    }
+
+
+
+@router.post("/users/{user_id}/unblock")
+def unblock_user(
+    user_id: str,
+    current_admin: dict = Depends(get_current_admin_user),
+    db: MongoDatabase = Depends(get_db)
+):
+    """Admin endpoint to unblock a locked user account and reset failed login attempts."""
+    try:
+        obj_id = ObjectId(user_id)
+        query = {"_id": obj_id}
+    except Exception:
+        query = {"_id": user_id}
+
+    target_user = db.users.find_one(query)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.users.update_one(
+        query,
+        {
+            "$set": {
+                "is_blocked": False,
+                "failed_login_attempts": 0,
+                "unblocked_at": datetime.now(timezone.utc),
+                "unblocked_by": str(current_admin["_id"])
+            },
+            "$unset": {"blocked_reason": "", "blocked_at": ""}
+        }
+    )
+
+    log_admin_action(
+        db,
+        admin_id=str(current_admin["_id"]),
+        action="unblock_user",
+        details={"target_user_id": user_id, "target_email": target_user.get("email")}
+    )
+
+    return {
+        "success": True,
+        "message": f"User account '{target_user.get('name') or user_id}' unblocked successfully."
     }
 
 
