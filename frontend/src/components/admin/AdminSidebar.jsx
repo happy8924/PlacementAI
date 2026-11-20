@@ -4,9 +4,6 @@ import { useAuth } from '../../hooks/useAuth';
 import {
   LayoutDashboard,
   Users,
-  GraduationCap,
-  Building2,
-  Building,
   ShieldCheck,
   Briefcase,
   Cpu,
@@ -32,9 +29,6 @@ export default function AdminSidebar({ isOpen, onClose }) {
   const mainNavItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'All Users', path: '/admin/users', icon: Users },
-    { name: 'Students', path: '/admin/students', icon: GraduationCap },
-    { name: 'Recruiters', path: '/admin/recruiters', icon: Building2 },
-    { name: 'TPO / Colleges', path: '/admin/tpos', icon: Building },
     { name: 'Roles & RBAC', path: '/admin/roles', icon: ShieldCheck },
   ];
 

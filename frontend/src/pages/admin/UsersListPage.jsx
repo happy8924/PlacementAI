@@ -8,7 +8,6 @@ import {
   Filter,
   CheckCircle2,
   XCircle,
-  ShieldCheck,
   GraduationCap,
   Building2,
   Building,
@@ -116,9 +115,9 @@ export default function UsersListPage({ initialRole = null, title = "User Govern
         
         {/* Header Title & Role Pills */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card-bg border border-theme p-6 rounded-2xl">
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-red-500" />
+              <Users className="w-5 h-5 text-red-500 flex-shrink-0" />
               <h2 className="text-xl font-extrabold text-primary font-mono uppercase tracking-tight">{title}</h2>
             </div>
             <p className="text-xs text-secondary font-mono">
@@ -127,18 +126,17 @@ export default function UsersListPage({ initialRole = null, title = "User Govern
           </div>
 
           {!initialRole && (
-            <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
+            <div className="flex items-center gap-1.5 font-mono text-xs flex-shrink-0 overflow-x-auto">
               {[
                 { label: 'All Roles', value: '' },
                 { label: 'Students', value: 'student', icon: GraduationCap },
                 { label: 'Recruiters', value: 'recruiter', icon: Building2 },
                 { label: 'TPOs', value: 'tpo', icon: Building },
-                { label: 'Admins', value: 'admin', icon: ShieldCheck },
               ].map((r) => (
                 <button
                   key={r.value}
                   onClick={() => { setRole(r.value); setPage(1); }}
-                  className={`px-3 py-1.5 rounded-lg border transition-all text-xs font-semibold flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg border transition-all text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap ${
                     role === r.value
                       ? 'bg-red-600 text-white border-red-600 shadow-sm'
                       : 'bg-secondary text-secondary border-theme hover:text-primary'
